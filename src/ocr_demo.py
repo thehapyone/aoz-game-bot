@@ -2,31 +2,18 @@ from pathlib import Path
 
 import cv2
 import cv2 as cv
+import pytesseract as ocr
+from pytesseract import Output
+
+ocr.pytesseract.tesseract_cmd = \
+    r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 cwd = Path(__file__).cwd()
 template_file = str(cwd.joinpath("data", 'game'))
 
-main_image = str(cwd.joinpath("fuel.png"))
+main_image = str(cwd.joinpath('data', "test2.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
-
-def load_all_templates(path: str):
-    """Loads all the template files found in path folder"""
-    template_path = Path(path)
-    if not template_path.is_dir():
-        raise Exception("Only directory are allowed")
-    template_images = []
-    for image_path in template_path.glob('template_*.png'):
-        template_images.append(cv.imread(str(image_path), 0))
-
-    if not template_images:
-        raise Exception("No template image found.")
-    return template_images
-
-
-# All the 6 methods for comparison in a list
-methods = ['cv.TM_SQDIFF', 'cv.TM_CCOEFF_NORMED',
-           'cv.TM_SQDIFF_NORMED']
 
 
 def display_image(image, name: str = None):
@@ -54,6 +41,10 @@ try:
     img = img_original.copy()
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     display_image(gray)
+    print(ocr.image_to_string(gray))
+    dataa = ocr.image_to_data(gray, output_type=Output.DICT)
+    print(ocr.image_to_data(gray))
+
 except KeyboardInterrupt:
     print("stop")
 
