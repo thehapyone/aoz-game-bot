@@ -1,11 +1,12 @@
 import subprocess
 import time
+from pathlib import Path
 from typing import Optional, List
+
+import cv2 as cv
 import imutils
 import numpy as np
 from mss import mss
-from pathlib import Path
-import cv2 as cv
 
 from src.helper import Coordinates, GameHelper
 from src.listener import MouseController, KeyboardController
@@ -37,12 +38,15 @@ class GameLauncher:
      - Start the game app if not started already.
      - launch the AoZ app
     """
+    instance = None
     game_path = 'C:\Program Files\BlueStacks_nxt\HD-Player.exe'
     cwd = Path(__file__).cwd()
     _templates_path = {
         "app": str(cwd.joinpath("data", "app")),
         "game": str(cwd.joinpath("data", "game", "app_icon")),
         "rewards": str(cwd.joinpath("data", "game", "rewards")),
+        "mobility": str(cwd.joinpath("data", "game", "mobility")),
+
     }
     IMG_COLOR = cv.IMREAD_COLOR
 
@@ -65,20 +69,20 @@ class GameLauncher:
         :return:
         """
         self.log_message("Launching Bluestack App now")
-        launcher.launch_app()
+        self.launch_app()
         self.log_message("Finding the app screen")
         try:
-            launcher.find_app()
+            self.find_app()
         except Exception as error:
             if "Bluestack screen not detected" in str(error):
                 # attempts again
-                launcher.find_app()
+                self.find_app()
             else:
                 raise error
         self.log_message("Finding the game app")
-        launcher.find_game()
+        self.find_game()
         self.log_message("Launching the game now")
-        launcher.launch_aoz()
+        self.launch_aoz()
 
     def launch_app(self):
         """Launches the main android bluestack app"""
@@ -96,9 +100,9 @@ class GameLauncher:
 
     def get_rewards(self):
         """Get the rewards that shows on the home screen"""
-        game_screen = self._get_game_screen()
+        game_screen = self.get_game_screen()
         self.log_message("Finding the available rewards button.")
-        rewards_location = self._find_target(
+        rewards_location = self.find_target(
             game_screen,
             self.target_templates('rewards'))
         if rewards_location:
@@ -143,7 +147,7 @@ class GameLauncher:
         self._mss.shot(mon=1, output=image_file)
         self._mss.close()
 
-    def _get_game_screen(self) -> np.ndarray:
+    def get_game_screen(self) -> np.ndarray:
         """
         Returns the current game screen. Used when the game screen has
         been updated.
@@ -163,8 +167,8 @@ class GameLauncher:
         screen_image = cv.imread(self.screen_image_path, self.IMG_COLOR)
         start_x, start_y, end_x, end_y = self._app_coordinates
         reference_image = screen_image[start_y:end_y, start_x:end_x]
-        location = self._find_target(reference_image,
-                                     self.target_templates('game'))
+        location = self.find_target(reference_image,
+                                    self.target_templates('game'))
         if not location:
             raise Exception("Game app not detected. Bot can't proceed")
         # extract the coordinates in reference to the main screen
@@ -183,13 +187,13 @@ class GameLauncher:
         # load the screenshot to memory
         screen_image = cv.imread(self.screen_image_path,
                                  self.IMG_COLOR)
-        location = self._find_target(screen_image,
-                                     self.target_templates('app'))
+        location = self.find_target(screen_image,
+                                    self.target_templates('app'))
         if not location:
             raise Exception("Bluestack screen not detected. Bot can't proceed")
         self._app_coordinates = location
 
-    def _find_target(self, reference: np.ndarray, target: List[np.ndarray]) \
+    def find_target(self, reference: np.ndarray, target: List[np.ndarray]) \
             -> Optional[Coordinates]:
         """
         Helper function for finding the coordinates of the
@@ -281,6 +285,8 @@ class GameLauncher:
             directory = self._templates_path["rewards"]
         elif target.lower() == "app":
             directory = self._templates_path["app"]
+        elif target.lower() == "mobility":
+            directory = self._templates_path["mobility"]
         else:
             raise Exception(f"Target {target} is not recognized")
         return self._load_all_templates(directory)
@@ -290,10 +296,3 @@ class GameLauncher:
         if self._debug:
             print(message)
 
-
-if __name__ == '__main__':
-    mouse = MouseController()
-    keyboard = KeyboardController()
-    # Run game launcher
-    launcher = GameLauncher(mouse, keyboard)
-    launcher.start_game()

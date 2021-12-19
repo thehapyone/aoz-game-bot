@@ -1,4 +1,8 @@
 """Responsible for killing zombies in the Game event"""
+import cv2
+import numpy as np
+
+from src.game_launcher import GameLauncher, display_image
 
 
 class Zombies:
@@ -31,4 +35,42 @@ class Zombies:
      - continue attacks as far mobility is greater than given limit.
 
     """
+
+    def __init__(self, launcher: GameLauncher):
+        self._fuel = None
+        self.launcher = launcher
+
+    @staticmethod
+    def get_fuel_screen(image: np.ndarray) -> np.ndarray:
+        """Returns an area of the screen where fuel is usually located"""
+        t_h, t_w, _ = image.shape
+        # new height = 10% of image height
+        new_th = int(0.1 * t_h)
+        # new width = 30% of the image width
+        new_tw = int(0.28 * t_w)
+        fuel_screen = image[0:new_th, 0:new_tw]
+        return fuel_screen
+
+    def get_latest_fuel(self):
+        """Get the current fuel value"""
+        # take a screen shoot of screen
+        # cut out the top 10% of the screen
+        # search the roi for the fuel template.
+
+        game_screen = self.launcher.get_game_screen()
+        fuel_screen = self.get_fuel_screen(game_screen)
+        display_image(fuel_screen)
+        # search fuel target to extract fuel area
+        fuel_cords = self.launcher.find_target(
+            fuel_screen, self.launcher.target_templates('mobility'))
+        new_x = fuel_cords.end_x
+        end_x = fuel_screen.shape[1] - 5
+        fuel_image = fuel_screen[
+                     fuel_cords.start_y + 5:fuel_cords.end_y - 5,
+                     new_x:end_x,
+                     ]
+        display_image(fuel_image)
+        cv2.imwrite('fuel.png', fuel_image)
+
+
 
