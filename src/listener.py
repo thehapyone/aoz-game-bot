@@ -1,8 +1,9 @@
 """The mouse listener code. Outputs the mouse screen interaction"""
 import time
+
 import pynput
-from pynput.mouse import Listener, Button, Controller
 from pynput.keyboard import Key
+from pynput.mouse import Listener, Button, Controller
 
 
 class KeyboardController:
@@ -52,7 +53,7 @@ class MouseController:
               button: Button = Button.left,
               clicks: int = 1):
         """Perform a mouse click on the current mouse position"""
-        self._mouse.click(button, 1)
+        self._mouse.click(button, clicks)
 
 
 class MouseListener:

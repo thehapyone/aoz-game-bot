@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 from src.game_launcher import GameLauncher, display_image
+from src.ocr import get_text_from_image
 
 
 class Zombies:
@@ -11,7 +12,7 @@ class Zombies:
 
     In order to be able to kill zombies in the game,
     some of this things need to be sorted out:
-     - Get current mobility
+     - Get current mobility --- done
      - Ability to switch to outside city screen
      - find and click on the green radar button
      - find and click on the find zombie radar
@@ -44,10 +45,10 @@ class Zombies:
     def get_fuel_screen(image: np.ndarray) -> np.ndarray:
         """Returns an area of the screen where fuel is usually located"""
         t_h, t_w, _ = image.shape
-        # new height = 10% of image height
-        new_th = int(0.1 * t_h)
-        # new width = 30% of the image width
-        new_tw = int(0.28 * t_w)
+        # new height = 8% of image height
+        new_th = int(0.08 * t_h)
+        # new width = 26% of the image width
+        new_tw = int(0.26 * t_w)
         fuel_screen = image[0:new_th, 0:new_tw]
         return fuel_screen
 
@@ -56,21 +57,35 @@ class Zombies:
         # take a screen shoot of screen
         # cut out the top 10% of the screen
         # search the roi for the fuel template.
-
         game_screen = self.launcher.get_game_screen()
         fuel_screen = self.get_fuel_screen(game_screen)
         display_image(fuel_screen)
+
         # search fuel target to extract fuel area
         fuel_cords = self.launcher.find_target(
             fuel_screen, self.launcher.target_templates('mobility'))
-        new_x = fuel_cords.end_x
+        new_x = fuel_cords.end_x + 5
         end_x = fuel_screen.shape[1] - 5
         fuel_image = fuel_screen[
                      fuel_cords.start_y + 5:fuel_cords.end_y - 5,
                      new_x:end_x,
                      ]
+        # extract the fuel value
+        cv2.imwrite('fuel2.png', fuel_image)
         display_image(fuel_image)
-        cv2.imwrite('fuel.png', fuel_image)
+        fuel_value = get_text_from_image(fuel_image)
+        self.launcher.log_message(f"Current fuel - {fuel_value}")
+        if fuel_value:
+            return fuel_value
+        raise Exception("Fuel value not readable")
+
+    def zombie_city(self):
+        """
+        Activates the zombie city mode
+        :return:
+        """
+
+
 
 
 

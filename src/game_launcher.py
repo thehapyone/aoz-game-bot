@@ -46,6 +46,8 @@ class GameLauncher:
         "game": str(cwd.joinpath("data", "game", "app_icon")),
         "rewards": str(cwd.joinpath("data", "game", "rewards")),
         "mobility": str(cwd.joinpath("data", "game", "mobility")),
+        "city-icon": str(cwd.joinpath("data", "game", "city_icon")),
+        "outside-icon": str(cwd.joinpath("data", "game", "outside_icon")),
 
     }
     IMG_COLOR = cv.IMREAD_COLOR
@@ -68,9 +70,10 @@ class GameLauncher:
         Starts and prep the AoZ game app
         :return:
         """
-        self.log_message("Launching Bluestack App now")
+        self.log_message(
+            "############## Launching Bluestack App now ##############")
         self.launch_app()
-        self.log_message("Finding the app screen")
+        self.log_message("############## Finding the app screen ##############")
         try:
             self.find_app()
         except Exception as error:
@@ -79,9 +82,9 @@ class GameLauncher:
                 self.find_app()
             else:
                 raise error
-        self.log_message("Finding the game app")
+        self.log_message("############# Finding the game app ##############")
         self.find_game()
-        self.log_message("Launching the game now")
+        self.log_message("############# Launching game now ##############")
         self.launch_aoz()
 
     def launch_app(self):
@@ -135,6 +138,8 @@ class GameLauncher:
             self.log_message("Game now active")
             # shake to collect available resources
             self._keyboard.shake()
+            time.sleep(5)
+
 
     @property
     def screen_image_path(self) -> str:
@@ -143,8 +148,7 @@ class GameLauncher:
 
     def take_screenshot(self) -> None:
         """Takes a screenshot of the current monitor screen"""
-        image_file = self.screen_image_path
-        self._mss.shot(mon=1, output=image_file)
+        self._mss.shot(mon=1, output=self.screen_image_path)
         self._mss.close()
 
     def get_game_screen(self) -> np.ndarray:
@@ -158,6 +162,88 @@ class GameLauncher:
         start_x, start_y, end_x, end_y = self._app_coordinates
         game_screen = screen_image[start_y:end_y, start_x:end_x]
         return game_screen
+
+    def get_bottom_menu(self) -> tuple[dict[int, np.ndarray], Coordinates]:
+        """
+        Gets the game button menu
+        :return: An enum of the game menu.
+        """
+        screen = self.get_game_screen()
+        t_h, t_w, _ = screen.shape
+        # new height = 10% of image height
+        new_th = int(0.10 * t_h)
+        bottom_coordinates = Coordinates(
+            start_x=0,
+            start_y=t_h - new_th,
+            end_x=t_w,
+            end_y=t_h
+        )
+        bottom_coordinates_relative = GameHelper.\
+            get_relative_coordinates(
+                self._app_coordinates, bottom_coordinates)
+        bottom_menu = screen[
+                      bottom_coordinates.start_y:bottom_coordinates.end_y,
+                      bottom_coordinates.start_x:bottom_coordinates.end_x]
+        # extract and categorizes all bottom menu.
+        # first menu is about 20% and the others share 16%
+        t_h, t_w, _ = bottom_menu.shape
+        city_icon_end_width = int(0.20 * t_w)
+        city_icon = bottom_menu[0:t_h, 0:city_icon_end_width]
+
+        menu_dict = {0: city_icon}
+
+        icon_width = int(0.16 * t_w)
+        end_width = city_icon_end_width
+        for count in range(1, 5):
+            start_width = end_width
+            end_width = start_width + icon_width
+            menu_icon = bottom_menu[0:t_h, start_width:end_width]
+            menu_dict[count] = menu_icon
+        return menu_dict, bottom_coordinates_relative
+
+    def set_view(self, view: int):
+        """
+        Set the game view from with inside city or outside the city
+        :param view: Either activate the inside city or outside city view
+        :return:
+        """
+        bottom_menu, coordinates = self.get_bottom_menu()
+        view_icon = bottom_menu[0]
+        coords = self.find_target(
+            view_icon, self.target_templates('city-icon'))
+        if view == 1:
+            # go to inside city view
+            if coords:
+                self.log_message("Now in city view mode")
+                return
+            coords = self.find_target(
+                view_icon, self.target_templates('outside-icon'))
+            center = GameHelper.get_center(coords)
+            self._mouse.set_position(coordinates.start_x,
+                                     coordinates.start_y)
+            self._mouse.move(*center)
+            time.sleep(2)
+            self._mouse.click()
+            time.sleep(5)
+            self.log_message("Now in city view mode")
+            return
+        if view == 2:
+            # go to outside city view
+            if not coords:
+                self.log_message("Now in outside city view mode")
+                return
+            coords = self.find_target(
+                view_icon, self.target_templates('city-icon'))
+            center = GameHelper.get_center(coords)
+            self._mouse.set_position(coordinates.start_x,
+                                     coordinates.start_y)
+            self._mouse.move(*center)
+            time.sleep(2)
+            self._mouse.click()
+            time.sleep(5)
+            self.log_message("Now in outside city view mode")
+            return
+        raise Exception(f"View mode {view} not supported")
 
     def find_game(self):
         """
@@ -287,6 +373,10 @@ class GameLauncher:
             directory = self._templates_path["app"]
         elif target.lower() == "mobility":
             directory = self._templates_path["mobility"]
+        elif target.lower() == "city-icon":
+            directory = self._templates_path["city-icon"]
+        elif target.lower() == "outside-icon":
+            directory = self._templates_path["outside-icon"]
         else:
             raise Exception(f"Target {target} is not recognized")
         return self._load_all_templates(directory)
@@ -295,4 +385,3 @@ class GameLauncher:
         """Prints to log if enabled"""
         if self._debug:
             print(message)
-

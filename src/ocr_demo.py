@@ -11,7 +11,7 @@ ocr.pytesseract.tesseract_cmd = \
 cwd = Path(__file__).cwd()
 template_file = str(cwd.joinpath("data", 'game'))
 
-main_image = str(cwd.joinpath('data', "test2.png"))
+main_image = str(cwd.joinpath("fuel25.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
@@ -42,8 +42,10 @@ try:
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     display_image(gray)
     print(ocr.image_to_string(gray))
-    dataa = ocr.image_to_data(gray, output_type=Output.DICT)
-    print(ocr.image_to_data(gray))
+    print(ocr.image_to_string(img))
+
+    dataa = ocr.image_to_data(img, output_type=Output.DICT)
+    print(ocr.image_to_data(img))
 
 except KeyboardInterrupt:
     print("stop")
