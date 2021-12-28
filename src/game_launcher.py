@@ -204,8 +204,9 @@ class GameLauncher:
     def set_view(self, view: int):
         """
         Set the game view from with inside city or outside the city
-        :param view: Either activate the inside city or outside city view
-        :return:
+        :param view: Either activate the inside city or outside city view.
+        Possible values are - 1 for inside city and 2 for outside city.
+        :return: None
         """
         bottom_menu, coordinates = self.get_bottom_menu()
         view_icon = bottom_menu[0]

@@ -11,4 +11,4 @@ if __name__ == '__main__':
 
     # zombie
     zombie = Zombies(launcher)
-    zombie.get_latest_fuel()
+    zombie.fuel

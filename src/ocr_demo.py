@@ -2,8 +2,8 @@ from pathlib import Path
 
 import cv2
 import cv2 as cv
+import numpy as np
 import pytesseract as ocr
-from pytesseract import Output
 
 ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -15,6 +15,15 @@ main_image = str(cwd.joinpath("fuel25.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
+
+def erode(image):
+    kernel = np.ones((2,2),np.uint8)
+    return cv2.erode(image, kernel, iterations = 1)
+
+#opening - erosion followed by dilation
+def opening(image):
+    kernel = np.ones((2,2),np.uint8)
+    return cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
 
 def display_image(image, name: str = None):
     # define the screen resolution
@@ -36,16 +45,43 @@ def display_image(image, name: str = None):
     cv.waitKey(0)
 
 
+green_min = (0,105,10)
+green_max = (16,255,75)
+
+white_min = (100,100,100)
+white_max = (255,255,255)
+
 method = cv.TM_SQDIFF_NORMED
 try:
     img = img_original.copy()
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    display_image(gray)
-    print(ocr.image_to_string(gray))
-    print(ocr.image_to_string(img))
+    green_channel = img.copy()[:,:,1]
+    blue_channel = img.copy()[:,:,0]
+    red_channel = img.copy()[:,:,2]
 
-    dataa = ocr.image_to_data(img, output_type=Output.DICT)
+    green_channel2 = cv2.inRange(img, green_min, green_max)
+    print(sum(green_channel2))
+    white_channel = cv2.inRange(img, white_min, white_max)
+    print(sum(white_channel))
+
+    display_image(green_channel2)
+    display_image(white_channel)
+
+    display_image(img)
+
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    print(ocr.image_to_string(img))
+    print(ocr.image_to_string(gray))
+    print(ocr.image_to_string(green_channel))
+
+    custom_config = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6 ' \
+                    r'outputbase digits'
+
     print(ocr.image_to_data(img))
+    print(ocr.image_to_data(gray))
+    print(ocr.image_to_data(green_channel))
+    print(ocr.image_to_data(green_channel2, config=custom_config))
+    print(ocr.image_to_data(white_channel, config=custom_config))
 
 except KeyboardInterrupt:
     print("stop")

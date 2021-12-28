@@ -5,13 +5,14 @@ ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
-def get_text_from_image(image: np.ndarray) -> str:
+def get_text_from_image(image: np.ndarray, config: str = None) -> str:
     """
     Perform OCR on a given image and returns the detected
     text
 
-    :param image:
+    :param config: A custom config
+    :param image: The input image
     :return: Text in image
     """
-    print(ocr.image_to_data(image))
-    return ocr.image_to_string(image).strip()
+    print(ocr.image_to_data(image, config=config))
+    return ocr.image_to_string(image, config=config).strip()
