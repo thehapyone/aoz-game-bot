@@ -8,6 +8,8 @@ import imutils
 import numpy as np
 from mss import mss
 
+from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE
+from src.exceptions import LauncherException
 from src.helper import Coordinates, GameHelper
 from src.listener import MouseController, KeyboardController
 
@@ -48,6 +50,7 @@ class GameLauncher:
         "mobility": str(cwd.joinpath("data", "game", "mobility")),
         "city-icon": str(cwd.joinpath("data", "game", "city_icon")),
         "outside-icon": str(cwd.joinpath("data", "game", "outside_icon")),
+        "radar": str(cwd.joinpath("data", "game", "radar")),
 
     }
     IMG_COLOR = cv.IMREAD_COLOR
@@ -64,6 +67,11 @@ class GameLauncher:
         self._aoz_launched = None
         self._mouse = mouse
         self._keyboard = keyboard
+
+    @property
+    def mouse(self):
+        """Returns the mouse object"""
+        return self._mouse
 
     def start_game(self):
         """
@@ -140,7 +148,6 @@ class GameLauncher:
             self._keyboard.shake()
             time.sleep(5)
 
-
     @property
     def screen_image_path(self) -> str:
         """Returns te path for the screenshot"""
@@ -163,27 +170,72 @@ class GameLauncher:
         game_screen = screen_image[start_y:end_y, start_x:end_x]
         return game_screen
 
-    def get_bottom_menu(self) -> tuple[dict[int, np.ndarray], Coordinates]:
+    def get_screen_section(self,
+                           percentage: int,
+                           position: int,
+                           source: np.ndarray = None,
+                           reference_coords: Coordinates = None) \
+            -> tuple[np.ndarray, Coordinates]:
+        """
+        Gets a percentage of the game screen and return that section only.
+
+        :param reference_coords: An alternate reference coordinates
+        :param source: Input image to extract section from.
+        :param percentage: Percentage of the screen
+        :param position: Whether it's top - 0, bottom - 1, left - 2 or right
+            - 3 of the screen.
+        :return: Returns an image section
+        """
+        screen = self.get_game_screen() if source is None else source
+        t_h, t_w, _ = screen.shape
+        new_th = int((percentage / 100) * t_h)
+        new_tw = int((percentage / 100) * t_w)
+        if position == TOP_IMAGE:
+            section_coordinates = Coordinates(
+                start_x=0,
+                start_y=0,
+                end_x=t_w,
+                end_y=new_th
+            )
+        elif position == BOTTOM_IMAGE:
+            section_coordinates = Coordinates(
+                start_x=0,
+                start_y=t_h - new_th,
+                end_x=t_w,
+                end_y=t_h
+            )
+        elif position == LEFT_IMAGE:
+            section_coordinates = Coordinates(
+                start_x=0,
+                start_y=0,
+                end_x=new_tw,
+                end_y=t_h
+            )
+        else:
+            section_coordinates = Coordinates(
+                start_x=t_w - new_tw,
+                start_y=0,
+                end_x=t_w,
+                end_y=t_h
+            )
+
+        section_coordinates_relative = GameHelper. \
+            get_relative_coordinates(
+            self._app_coordinates if not reference_coords else reference_coords,
+            section_coordinates)
+        section_image = screen[
+                        section_coordinates.start_y:section_coordinates.end_y,
+                        section_coordinates.start_x:section_coordinates.end_x]
+        return section_image, section_coordinates_relative
+
+    def get_bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
+                                       Coordinates]:
         """
         Gets the game button menu
         :return: An enum of the game menu.
         """
-        screen = self.get_game_screen()
-        t_h, t_w, _ = screen.shape
-        # new height = 10% of image height
-        new_th = int(0.10 * t_h)
-        bottom_coordinates = Coordinates(
-            start_x=0,
-            start_y=t_h - new_th,
-            end_x=t_w,
-            end_y=t_h
-        )
-        bottom_coordinates_relative = GameHelper.\
-            get_relative_coordinates(
-                self._app_coordinates, bottom_coordinates)
-        bottom_menu = screen[
-                      bottom_coordinates.start_y:bottom_coordinates.end_y,
-                      bottom_coordinates.start_x:bottom_coordinates.end_x]
+        bottom_menu, bottom_coordinates_relative = \
+            self.get_screen_section(10, BOTTOM_IMAGE)
         # extract and categorizes all bottom menu.
         # first menu is about 20% and the others share 16%
         t_h, t_w, _ = bottom_menu.shape
@@ -194,12 +246,14 @@ class GameLauncher:
 
         icon_width = int(0.16 * t_w)
         end_width = city_icon_end_width
-        for count in range(1, 5):
+        for count in range(1, 6):
             start_width = end_width
             end_width = start_width + icon_width
+            if end_width > t_w:
+                end_width = t_w
             menu_icon = bottom_menu[0:t_h, start_width:end_width]
             menu_dict[count] = menu_icon
-        return menu_dict, bottom_coordinates_relative
+        return bottom_menu, menu_dict, bottom_coordinates_relative
 
     def set_view(self, view: int):
         """
@@ -208,17 +262,19 @@ class GameLauncher:
         Possible values are - 1 for inside city and 2 for outside city.
         :return: None
         """
-        bottom_menu, coordinates = self.get_bottom_menu()
-        view_icon = bottom_menu[0]
+        bottom_image, _, coordinates = self.get_bottom_menu()
         coords = self.find_target(
-            view_icon, self.target_templates('city-icon'))
+            bottom_image, self.target_templates('city-icon'))
         if view == 1:
             # go to inside city view
             if coords:
                 self.log_message("Now in city view mode")
                 return
             coords = self.find_target(
-                view_icon, self.target_templates('outside-icon'))
+                bottom_image, self.target_templates('outside-icon'))
+            if not coords:
+                raise LauncherException(
+                    "View changing could not be completed.")
             center = GameHelper.get_center(coords)
             self._mouse.set_position(coordinates.start_x,
                                      coordinates.start_y)
@@ -234,7 +290,10 @@ class GameLauncher:
                 self.log_message("Now in outside city view mode")
                 return
             coords = self.find_target(
-                view_icon, self.target_templates('city-icon'))
+                bottom_image, self.target_templates('city-icon'))
+            if not coords:
+                raise LauncherException(
+                    "View changing could not be completed.")
             center = GameHelper.get_center(coords)
             self._mouse.set_position(coordinates.start_x,
                                      coordinates.start_y)
@@ -244,7 +303,7 @@ class GameLauncher:
             time.sleep(5)
             self.log_message("Now in outside city view mode")
             return
-        raise Exception(f"View mode {view} not supported")
+        raise LauncherException(f"View mode {view} not supported")
 
     def find_game(self):
         """
@@ -277,7 +336,8 @@ class GameLauncher:
         location = self.find_target(screen_image,
                                     self.target_templates('app'))
         if not location:
-            raise Exception("Bluestack screen not detected. Bot can't proceed")
+            raise LauncherException(
+                "Bluestack screen not detected. Bot can't proceed")
         self._app_coordinates = location
 
     def find_target(self, reference: np.ndarray, target: List[np.ndarray]) \
@@ -378,6 +438,8 @@ class GameLauncher:
             directory = self._templates_path["city-icon"]
         elif target.lower() == "outside-icon":
             directory = self._templates_path["outside-icon"]
+        elif target.lower() == "radar":
+            directory = self._templates_path["radar"]
         else:
             raise Exception(f"Target {target} is not recognized")
         return self._load_all_templates(directory)
