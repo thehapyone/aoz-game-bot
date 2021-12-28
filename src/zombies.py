@@ -2,10 +2,11 @@
 import cv2
 import numpy as np
 
-from src.constants import OUTSIDE_VIEW
+from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE
 from src.exceptions import ZombieException
-from src.game_launcher import GameLauncher, display_image
+from src.game_launcher import GameLauncher
 from src.ocr import get_text_from_image
+from src.radar import Radar
 
 
 class Zombies:
@@ -16,9 +17,9 @@ class Zombies:
     some of this things need to be sorted out:
      - Get current mobility --- done
      - Ability to switch to outside city screen --- done
-     - find and click on the green radar button
-     - find and click on the find zombie radar
-     - get the current level of zombie for the user
+     - find and click on the green radar button --- done
+     - find and click on the find zombie radar ---- done
+     - get the current level of zombie for the user --- done
      - increase and decrease the zombie level.
      - click on go to find any available zombie
      - search and find the arrow that shows for about 6 secs before disappearing
@@ -42,12 +43,21 @@ class Zombies:
     def __init__(self, launcher: GameLauncher):
         self._fuel = None
         self.launcher = launcher
+        self._max_level = None
+        self.radar = Radar(self.launcher)
 
     @property
     def fuel(self):
         """Returns the current fuel"""
         self._fuel = self._get_latest_fuel()
         return self._fuel
+
+    @property
+    def max_level(self):
+        """Returns the zombie max level allowed so far"""
+        if not self._max_level:
+            self._max_level = self.get_zombie_max()
+        return self._max_level
 
     @staticmethod
     def get_fuel_screen(image: np.ndarray) -> np.ndarray:
@@ -94,19 +104,39 @@ class Zombies:
                      fuel_cords.start_y + 5:fuel_cords.end_y - 5,
                      new_x:end_x,
                      ]
-        display_image(fuel_image)
         processed_image = self.process_fuel_image(fuel_image)
-
-        display_image(processed_image)
         custom_config = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6 ' \
-                    r'outputbase digits'
+                        r'outputbase digits'
 
         # extract the fuel value
         fuel_value = get_text_from_image(processed_image, custom_config)
         self.launcher.log_message(f"Current fuel - {fuel_value}")
         if fuel_value:
-            return fuel_value
+            return int(fuel_value.strip())
         raise ZombieException("Fuel value not readable")
+
+    def get_zombie_max(self) -> int:
+        """
+        Gets the current max level of zombie
+        :return: Current zombie max level
+        """
+        # Set to the zombie radar screen
+        self.radar.select_radar_menu(6)
+        zombie_section, _ = self.launcher. \
+            get_screen_section(4, BOTTOM_IMAGE)
+        t_h, t_w, _ = zombie_section.shape
+        zombie_level_img = zombie_section[0:t_h,
+                           int(0.30 * t_w):t_w - int(0.30 * t_w)]
+        black_min = (2, 2, 2)
+        black_max = (60, 60, 60)
+        image_processed = cv2.inRange(zombie_level_img, black_min, black_max)
+        custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
+                        r'--oem 3 --psm 6'
+        zombie_level = get_text_from_image(image_processed, custom_config)
+        self.launcher.log_message(f"Current zombie max - {zombie_level}")
+        if zombie_level:
+            return int(zombie_level.strip())
+        raise ZombieException("Zombie Max level can not be extracted")
 
     def zombie_city(self):
         """
@@ -115,9 +145,3 @@ class Zombies:
         :return:
         """
         self.launcher.set_view(OUTSIDE_VIEW)
-
-
-
-
-
-

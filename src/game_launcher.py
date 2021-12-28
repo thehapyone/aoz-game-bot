@@ -171,7 +171,7 @@ class GameLauncher:
         return game_screen
 
     def get_screen_section(self,
-                           percentage: int,
+                           percentage: float,
                            position: int,
                            source: np.ndarray = None,
                            reference_coords: Coordinates = None) \

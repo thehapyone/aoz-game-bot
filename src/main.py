@@ -1,6 +1,5 @@
 from src.game_launcher import GameLauncher
 from src.listener import MouseController, KeyboardController
-from src.radar import Radar
 from src.zombies import Zombies
 
 if __name__ == '__main__':
@@ -12,7 +11,4 @@ if __name__ == '__main__':
 
     # zombie
     zombie = Zombies(launcher)
-
-    # radar
-    radar = Radar(launcher)
-    radar.select_radar_menu(5)
+    zombie.max_level

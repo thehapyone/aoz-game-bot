@@ -10,11 +10,19 @@ from src.helper import Coordinates, GameHelper
 class Radar:
     """
     Radar handling class
+
+    :param GameLauncher launcher: The game launcher instance
     """
 
-    def __init__(self, launcher: GameLauncher):
-        self.launcher = launcher
-        self._activated = False
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Radar, cls).__new__(cls)
+            print(args, kwargs)
+            cls._instance.launcher = args[0]  # type GameLauncher
+            cls._instance._activated = False
+        return cls._instance
 
     def activate_radar(self):
         """
