@@ -12,3 +12,4 @@ if __name__ == '__main__':
     # zombie
     zombie = Zombies(launcher)
     zombie.max_level
+    zombie.get_zombie_current_level()

@@ -47,7 +47,7 @@ class Radar:
 
         center = GameHelper.get_center(coords_relative)
         self.launcher.mouse.set_position(coords_relative.start_x,
-                                 coords_relative.start_y)
+                                         coords_relative.start_y)
         time.sleep(1)
         self.launcher.mouse.move(*center)
         self.launcher.mouse.click()
@@ -73,8 +73,8 @@ class Radar:
         radar_section, radar_area_coords_relative = \
             self.launcher.get_screen_section(23, BOTTOM_IMAGE)
         menu_section, _ = self.launcher.get_screen_section(45,
-                                                        TOP_IMAGE,
-                                                        radar_section)
+                                                           TOP_IMAGE,
+                                                           radar_section)
         t_h, t_w, _ = menu_section.shape
         radar_options = {}
         icon_width = int(0.1666 * t_w)
@@ -84,10 +84,10 @@ class Radar:
             end_width = start_width + icon_width
             if end_width > t_w:
                 end_width = t_w
-            coords_relative =  GameHelper.get_relative_coordinates(
+            cords_relative = GameHelper.get_relative_coordinates(
                 radar_area_coords_relative,
                 Coordinates(start_width, 0, end_width, t_h))
-            radar_options[count] = coords_relative
+            radar_options[count] = cords_relative
 
         # Now activate the selected menu
         current_coords = radar_options[menu]

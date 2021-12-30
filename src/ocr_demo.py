@@ -9,16 +9,10 @@ ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 cwd = Path(__file__).cwd()
-template_file = str(cwd.joinpath("data", 'game'))
 
-main_image = str(cwd.joinpath("zombie1.png"))
+main_image = str(cwd.joinpath("zombie5.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
-
-
-def erode(image):
-    kernel = np.ones((2,2),np.uint8)
-    return cv2.erode(image, kernel, iterations = 1)
 
 #opening - erosion followed by dilation
 def opening(image):
@@ -48,13 +42,15 @@ def display_image(image, name: str = None):
 green_min = (0,105,10)
 green_max = (16,255,75)
 
-white_min = (100,100,100)
+white_min = (200,200,200)
 white_max = (255,255,255)
 
 black_min = (2,2,2)
-black_max = (60,60,60)
+black_max = (65,65,65)
 
 method = cv.TM_SQDIFF_NORMED
+rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
+
 try:
     img = img_original.copy()
     green_channel = img.copy()[:,:,1]
@@ -64,31 +60,52 @@ try:
     black_channel = cv2.inRange(img, black_min, black_max)
     white_channel = cv2.inRange(img, white_min, white_max)
 
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    display_image(img)
+    display_image(gray)
+
+    tophat = cv2.morphologyEx(gray, cv2.MORPH_TOPHAT, rectKernel)
+
+
+    display_image(tophat)
     display_image(black_channel)
     display_image(white_channel)
 
-    display_image(img)
 
     print(ocr.image_to_string(img))
-    print(ocr.image_to_string(green_channel))
 
-    custom_config = r'-c tessedit_char_blacklist=.,-/\| --oem 3 --psm 6 ' \
+    custom_config = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6 ' \
                     r'outputbase digits'
 
     custom_config2 = r'-c tessedit_char_whitelist=0123456789 --oem 3 --psm 6 '
 
-    print(ocr.image_to_string(white_channel,  config=custom_config2))
+    custom_config3 = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6'
+
+    print('--------------- white channel --------------------')
+    print(ocr.image_to_string(white_channel,  config=custom_config))
     print(ocr.image_to_string(white_channel))
 
+    print('--------------- black channel --------------------')
     print(ocr.image_to_string(black_channel, config=custom_config2))
+    result = ocr.image_to_string(black_channel, config=custom_config3)
+    digits = []
+    for char in result.strip():
+        if char.isdigit():
+            digits.append(char)
+    level = int("".join(digits))
+    print("sss - ", level)
     print(ocr.image_to_string(black_channel))
 
-
-    print(ocr.image_to_data(img))
-    print(ocr.image_to_data(green_channel))
+    print('--------------- black channel --------------------')
+    print(ocr.image_to_data(black_channel, config=custom_config2))
+    print(ocr.image_to_data(black_channel, config=custom_config3))
     print(ocr.image_to_data(black_channel))
-    print(ocr.image_to_data(black_channel, config=custom_config))
-    print(ocr.image_to_data(white_channel, config=custom_config))
+
+    print('--------------- white channel --------------------')
+    print(ocr.image_to_data(white_channel, config=custom_config2))
+    print(ocr.image_to_data(white_channel))
+
 
 except KeyboardInterrupt:
     print("stop")

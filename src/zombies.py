@@ -2,9 +2,10 @@
 import cv2
 import numpy as np
 
-from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE
+from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE
 from src.exceptions import ZombieException
 from src.game_launcher import GameLauncher
+from src.helper import GameHelper
 from src.ocr import get_text_from_image
 from src.radar import Radar
 
@@ -20,7 +21,8 @@ class Zombies:
      - find and click on the green radar button --- done
      - find and click on the find zombie radar ---- done
      - get the current level of zombie for the user --- done
-     - increase and decrease the zombie level.
+     - increase and decrease the zombie level. -- done
+     - get the current zombie level ---
      - click on go to find any available zombie
      - search and find the arrow that shows for about 6 secs before disappearing
      - click on the given zombie (confirm it is the right zombie level)
@@ -44,6 +46,8 @@ class Zombies:
         self._fuel = None
         self.launcher = launcher
         self._max_level = None
+        self._decrease_btn_cords = None
+        self._increase_btn_cords = None
         self.radar = Radar(self.launcher)
 
     @property
@@ -127,16 +131,83 @@ class Zombies:
         t_h, t_w, _ = zombie_section.shape
         zombie_level_img = zombie_section[0:t_h,
                            int(0.30 * t_w):t_w - int(0.30 * t_w)]
+        cv2.imwrite('zombie5.png', zombie_level_img)
         black_min = (2, 2, 2)
-        black_max = (60, 60, 60)
+        black_max = (65, 65, 65)
         image_processed = cv2.inRange(zombie_level_img, black_min, black_max)
+        custom_config = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6'
+        zombie_level = get_text_from_image(image_processed, custom_config)
+
+        if zombie_level:
+            digits = "".join([char for char in zombie_level.strip()
+                              if char.isdigit()])
+            self.launcher.log_message(f"Current zombie max - {digits}")
+            return int(digits)
+        raise ZombieException("Zombie Max level can not be extracted")
+
+    def get_zombie_increment_position(self):
+        """
+        Fetches the zombie level increment button position
+        :return:
+        """
+        button_section, cords_relative = self.launcher. \
+            get_screen_section(10, BOTTOM_IMAGE)
+        # get the decrease button
+        decrease_section, decrease_relative = self.launcher. \
+            get_screen_section(30, LEFT_IMAGE,
+                               button_section, cords_relative)
+        decrease_cords = self.launcher.find_target(
+            decrease_section,
+            self.launcher.target_templates('zombie-decrease'))
+        if not decrease_cords:
+            raise ZombieException("Zombie decrease button not found")
+        self._decrease_btn_cords = GameHelper.get_relative_coordinates(
+            decrease_relative,
+            decrease_cords)
+        # get the increase button
+        increase_section, increase_relative = self.launcher. \
+            get_screen_section(40, RIGHT_IMAGE,
+                               button_section, cords_relative)
+        increase_cords = self.launcher.find_target(
+            increase_section,
+            self.launcher.target_templates('zombie-increase'))
+        if not increase_cords:
+            raise ZombieException("Zombie increase button not found")
+        self._increase_btn_cords = GameHelper.get_relative_coordinates(
+            increase_relative,
+            increase_cords)
+        increase_center = GameHelper.get_center(self._increase_btn_cords)
+        self.launcher.mouse.set_position(self._increase_btn_cords.start_x,
+                                         self._increase_btn_cords.start_y)
+        self.launcher.mouse.move(*increase_center)
+
+    def get_zombie_current_level(self):
+        """
+        Fetches the current zombie level.
+        :return:
+        """
+        bottom_section, _ = self.launcher. \
+            get_screen_section(13, BOTTOM_IMAGE)
+
+        t_h, t_w, _ = bottom_section.shape
+
+        level_section = bottom_section[
+                        0:t_h - int(0.52 * t_h),
+                        int(0.35 * t_w): t_w - int(0.35 * t_w)
+                        ]
+
+        white_min = (200, 200, 200)
+        white_max = (255, 255, 255)
+        image_processed = cv2.inRange(level_section, white_min, white_max)
+
         custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
                         r'--oem 3 --psm 6'
-        zombie_level = get_text_from_image(image_processed, custom_config)
-        self.launcher.log_message(f"Current zombie max - {zombie_level}")
-        if zombie_level:
-            return int(zombie_level.strip())
-        raise ZombieException("Zombie Max level can not be extracted")
+        zombie_level_val = get_text_from_image(image_processed, custom_config)
+        self.launcher.log_message(f"Current zombie level - {zombie_level_val}")
+        if zombie_level_val:
+            return int(zombie_level_val.strip())
+
+        raise ZombieException("Zombie current level can not be extracted")
 
     def zombie_city(self):
         """
