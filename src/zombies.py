@@ -9,7 +9,7 @@ from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE
 from src.exceptions import ZombieException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates
-from src.ocr import get_text_from_image
+from src.ocr import get_text_from_image, ocr_from_contour
 from src.radar import Radar
 
 
@@ -204,15 +204,21 @@ class Zombies:
                         int(0.35 * t_w): t_w - int(0.35 * t_w)
                         ]
 
-        white_min = (200, 200, 200)
+        cv2.imwrite('zombie-level3.png', level_section)
+        white_min = (180, 180, 180)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(level_section, white_min, white_max)
-
         custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
                         r'--oem 3 --psm 6'
-        zombie_level_val = get_text_from_image(image_processed, custom_config)
-        self.launcher.log_message(f"Current zombie level - {zombie_level_val}")
+        custom_config2 = r'-c tessedit_char_whitelist=0123456789 ' \
+                         r'--oem 3 --psm 10'
+        zombie_level_val = get_text_from_image(image_processed,
+                                               custom_config)
+        zombie_level_val = zombie_level_val if zombie_level_val else \
+            ocr_from_contour(image_processed, custom_config2)
         if zombie_level_val:
+            self.launcher.log_message(
+                f"Current zombie level - {zombie_level_val}")
             return int(zombie_level_val.strip())
 
         raise ZombieException("Zombie current level can not be extracted")
