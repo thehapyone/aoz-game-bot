@@ -52,6 +52,8 @@ class GameLauncher:
         "outside-icon": str(cwd.joinpath("data", "game", "outside_icon")),
         "radar": str(cwd.joinpath("data", "game", "radar")),
         "go-button": str(cwd.joinpath("data", "game", "go_button")),
+        "zombie-arrow": str(cwd.joinpath("data", "game",
+                                         "zombie_arrow")),
         "zombie-decrease": str(cwd.joinpath("data", "game", "zombie_decrease")),
         "zombie-increase": str(cwd.joinpath("data", "game",
                                             "zombie_increase")),
@@ -285,7 +287,7 @@ class GameLauncher:
             self._mouse.move(*center)
             time.sleep(2)
             self._mouse.click()
-            time.sleep(5)
+            time.sleep(7)
             self.log_message("Now in city view mode")
             return
         if view == 2:
@@ -304,7 +306,7 @@ class GameLauncher:
             self._mouse.move(*center)
             time.sleep(2)
             self._mouse.click()
-            time.sleep(5)
+            time.sleep(7)
             self.log_message("Now in outside city view mode")
             return
         raise LauncherException(f"View mode {view} not supported")
@@ -406,7 +408,6 @@ class GameLauncher:
 
         if min_val < 0.55 and cosine_score > 0.50:
             if self._debug:
-                self.log_message("Target image found successfully")
                 self.log_message(
                     f"Region is TopLeft: ({start_x}, {start_y}) and "
                     f"bottomLeft: ({end_x}, {end_y})")

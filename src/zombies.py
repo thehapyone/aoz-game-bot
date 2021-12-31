@@ -5,7 +5,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE
+from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
+    TOP_IMAGE
 from src.exceptions import ZombieException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates
@@ -256,7 +257,7 @@ class Zombies:
         time.sleep(1)
         for _ in range(increase_count):
             self.launcher.mouse.click()
-            time.sleep(1)
+            time.sleep(0.5)
 
     def set_zombie_level(self, level: int):
         """
@@ -286,3 +287,43 @@ class Zombies:
         :return:
         """
         self.launcher.set_view(OUTSIDE_VIEW)
+
+    def find_zombie(self, level: int):
+        """
+        Find the a particular zombie of a given level.
+        :return:
+        """
+        self.set_zombie_level(level)
+        button = self.radar.go_button
+        self.launcher.mouse.set_position(button.start_x, button.start_y)
+        center = GameHelper.get_center(button)
+        self.launcher.mouse.move(*center)
+        time.sleep(0.5)
+        self.launcher.mouse.click()
+        time.sleep(2.5)
+        # select the zombie
+        zombie_area_image, zombie_area_cords_relative = \
+            self.launcher.get_screen_section(60, TOP_IMAGE)
+        zombie_area_image, zombie_area_cords_relative = \
+            self.launcher.get_screen_section(80, BOTTOM_IMAGE,
+                                             zombie_area_image,
+                                             zombie_area_cords_relative)
+        cords = self.launcher.find_target(
+            zombie_area_image,
+            self.launcher.target_templates('zombie-arrow'))
+        if not cords:
+            raise ZombieException("No zombie found")
+        cords_relative = GameHelper. \
+            get_relative_coordinates(
+            zombie_area_cords_relative, cords)
+
+        self.launcher.mouse.set_position(cords_relative.start_x,
+                                         cords_relative.end_y + 80)
+        time.sleep(1)
+        self.launcher.mouse.move(1,1)
+        self.launcher.mouse.click()
+        time.sleep(0.8)
+        self.launcher.mouse.click()
+        time.sleep(0.5)
+
+

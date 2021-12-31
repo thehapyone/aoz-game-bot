@@ -3,7 +3,7 @@ import time
 
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, RIGHT_IMAGE
 from src.exceptions import RadarException
-from src.game_launcher import GameLauncher
+from src.game_launcher import GameLauncher, display_image
 from src.helper import Coordinates, GameHelper
 
 
@@ -36,6 +36,8 @@ class Radar:
         Activates the radar in the outside city
         :return:
         """
+        self.launcher.log_message(
+            "################ Finding the radar ################")
         self.launcher.set_view(OUTSIDE_VIEW)
         radar_area_image, radar_area_coords_relative = \
             self.launcher.get_screen_section(23, BOTTOM_IMAGE)
@@ -46,6 +48,9 @@ class Radar:
         coords = self.launcher.find_target(
             radar_area_image,
             self.launcher.target_templates('radar'))
+        display_image(radar_area_image[coords.start_y:coords.end_y,
+                      coords.start_x:coords.end_x])
+
         if not coords:
             raise RadarException("Radar icon could not be found.")
         coords_relative = GameHelper. \
