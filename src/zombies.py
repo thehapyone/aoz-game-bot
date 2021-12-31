@@ -1,11 +1,14 @@
 """Responsible for killing zombies in the Game event"""
+import time
+from typing import Optional
+
 import cv2
 import numpy as np
 
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE
 from src.exceptions import ZombieException
 from src.game_launcher import GameLauncher
-from src.helper import GameHelper
+from src.helper import GameHelper, Coordinates
 from src.ocr import get_text_from_image
 from src.radar import Radar
 
@@ -22,7 +25,7 @@ class Zombies:
      - find and click on the find zombie radar ---- done
      - get the current level of zombie for the user --- done
      - increase and decrease the zombie level. -- done
-     - get the current zombie level ---
+     - get the current zombie level --- done
      - click on go to find any available zombie
      - search and find the arrow that shows for about 6 secs before disappearing
      - click on the given zombie (confirm it is the right zombie level)
@@ -46,8 +49,8 @@ class Zombies:
         self._fuel = None
         self.launcher = launcher
         self._max_level = None
-        self._decrease_btn_cords = None
-        self._increase_btn_cords = None
+        self._decrease_btn_cords: Optional[Coordinates] = None
+        self._increase_btn_cords: Optional[Coordinates] = None
         self.radar = Radar(self.launcher)
 
     @property
@@ -124,8 +127,6 @@ class Zombies:
         Gets the current max level of zombie
         :return: Current zombie max level
         """
-        # Set to the zombie radar screen
-        self.radar.select_radar_menu(6)
         zombie_section, _ = self.launcher. \
             get_screen_section(4, BOTTOM_IMAGE)
         t_h, t_w, _ = zombie_section.shape
@@ -181,6 +182,13 @@ class Zombies:
                                          self._increase_btn_cords.start_y)
         self.launcher.mouse.move(*increase_center)
 
+    def initialize_zombie(self):
+        """Initialize zombie buttons"""
+        # Set to the zombie radar screen
+        self.radar.select_radar_menu(6)
+        self.get_zombie_increment_position()
+        self._max_level = self.get_zombie_max()
+
     def get_zombie_current_level(self):
         """
         Fetches the current zombie level.
@@ -208,6 +216,62 @@ class Zombies:
             return int(zombie_level_val.strip())
 
         raise ZombieException("Zombie current level can not be extracted")
+
+    def zombie_go(self):
+        """
+        Activates the zombie go button to find the next available zombie.
+        :return:
+        """
+        self.launcher.mouse.set_position(self.radar.go_button)
+        center = GameHelper.get_center(self.radar.go_button)
+        self.launcher.mouse.move(*center)
+
+    def _adjust_level(self, level_type: str, increase_count: int):
+        """
+        Adjust the current zombie level to match the expected level
+        :return:
+        """
+        self.launcher.log_message(f'Adjusting zombie level - {level_type}, '
+                                  f'{increase_count}')
+        if level_type == 'INCREASE':
+            self.launcher.mouse.set_position(
+                self._increase_btn_cords.start_x,
+                self._increase_btn_cords.start_y)
+            center = GameHelper.get_center(self._increase_btn_cords)
+            self.launcher.mouse.move(*center)
+        elif level_type == 'DECREASE':
+            self.launcher.mouse.set_position(
+                self._decrease_btn_cords.start_x,
+                self._decrease_btn_cords.start_y)
+            center = GameHelper.get_center(self._decrease_btn_cords)
+            self.launcher.mouse.move(*center)
+        else:
+            raise ZombieException('Level type not supported')
+        time.sleep(1)
+        for _ in range(increase_count):
+            self.launcher.mouse.click()
+            time.sleep(1)
+
+    def set_zombie_level(self, level: int):
+        """
+        Set the zombie level. If level is greater than max level.
+        Set to max level - 1
+
+        :param level: The expected level.
+        :returns: None
+        """
+        new_level = self.max_level if level > self.max_level else level
+        # enforces new level is a positive real number
+        new_level = new_level if new_level > 0 else 1
+        current_level = self.get_zombie_current_level()
+        increase_count = abs(new_level - current_level)
+        self.launcher.log_message(f'Adjusting zombie level - {new_level}')
+        if new_level > current_level:
+            level_type = 'INCREASE'
+            self._adjust_level(level_type, increase_count)
+        elif new_level < current_level:
+            level_type = 'DECREASE'
+            self._adjust_level(level_type, increase_count)
 
     def zombie_city(self):
         """

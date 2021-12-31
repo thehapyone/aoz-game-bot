@@ -11,5 +11,5 @@ if __name__ == '__main__':
 
     # zombie
     zombie = Zombies(launcher)
-    zombie.max_level
-    zombie.get_zombie_current_level()
+    zombie.initialize_zombie()
+    zombie.set_zombie_level(0)

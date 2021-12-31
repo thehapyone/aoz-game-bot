@@ -51,6 +51,10 @@ class GameLauncher:
         "city-icon": str(cwd.joinpath("data", "game", "city_icon")),
         "outside-icon": str(cwd.joinpath("data", "game", "outside_icon")),
         "radar": str(cwd.joinpath("data", "game", "radar")),
+        "go-button": str(cwd.joinpath("data", "game", "go_button")),
+        "zombie-decrease": str(cwd.joinpath("data", "game", "zombie_decrease")),
+        "zombie-increase": str(cwd.joinpath("data", "game",
+                                            "zombie_increase")),
 
     }
     IMG_COLOR = cv.IMREAD_COLOR
@@ -426,21 +430,9 @@ class GameLauncher:
 
     def target_templates(self, target: str) -> List[np.ndarray]:
         """Return all the target specified templates"""
-        if target.lower() == "game":
-            directory = self._templates_path["game"]
-        elif target.lower() == "rewards":
-            directory = self._templates_path["rewards"]
-        elif target.lower() == "app":
-            directory = self._templates_path["app"]
-        elif target.lower() == "mobility":
-            directory = self._templates_path["mobility"]
-        elif target.lower() == "city-icon":
-            directory = self._templates_path["city-icon"]
-        elif target.lower() == "outside-icon":
-            directory = self._templates_path["outside-icon"]
-        elif target.lower() == "radar":
-            directory = self._templates_path["radar"]
-        else:
+        try:
+            directory = self._templates_path[target.lower()]
+        except KeyError:
             raise Exception(f"Target {target} is not recognized")
         return self._load_all_templates(directory)
 
