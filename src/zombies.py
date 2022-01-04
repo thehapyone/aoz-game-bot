@@ -8,7 +8,7 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
     TOP_IMAGE
 from src.exceptions import ZombieException
-from src.game_launcher import GameLauncher
+from src.game_launcher import GameLauncher, display_image
 from src.helper import GameHelper, Coordinates
 from src.ocr import get_text_from_image, ocr_from_contour
 from src.radar import Radar
@@ -317,13 +317,115 @@ class Zombies:
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
 
-        self.launcher.mouse.set_position(cords_relative.start_x,
+        self.launcher.mouse.set_position(cords_relative.start_x + 10,
                                          cords_relative.end_y + 80)
-        time.sleep(1)
-        self.launcher.mouse.move(1,1)
+        time.sleep(0.2)
+        self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
         time.sleep(0.8)
         self.launcher.mouse.click()
         time.sleep(0.5)
+
+    def attack_zombie(self):
+        """
+        Attack the current zombie shown on the display screen. It finds
+        the zombie attack button and clicks on it.
+
+        :param self:
+        :return:
+        """
+        self.launcher.log_message(
+            '---------- Finding attack button --------------')
+        zombie_area_image, zombie_area_cords_relative = \
+            self.launcher.get_screen_section(45, BOTTOM_IMAGE)
+        zombie_area_image, zombie_area_cords_relative = \
+            self.launcher.get_screen_section(50, TOP_IMAGE,
+                                             zombie_area_image,
+                                             zombie_area_cords_relative)
+        cords = self.launcher.find_target(
+            zombie_area_image,
+            self.launcher.target_templates('zombie-attack'))
+        if not cords:
+            raise ZombieException("No zombie attack button found")
+        display_image(zombie_area_image[cords.start_y:cords.end_y,
+                      cords.start_x:cords.end_x])
+        cords_relative = GameHelper. \
+            get_relative_coordinates(
+            zombie_area_cords_relative, cords)
+        self.launcher.mouse.set_position(cords_relative.start_x,
+                                         cords_relative.start_y)
+        center = GameHelper.get_center(cords_relative)
+        self.launcher.mouse.move(*center)
+        time.sleep(0.8)
+        self.launcher.mouse.click()
+
+    def find_set_out(self):
+        """
+        Finds out the set out button and also extract the time of trip.
+
+        :return:
+        """
+        bottom_section, cords_relative = self.launcher. \
+            get_screen_section(13, BOTTOM_IMAGE)
+
+        bottom_section, cords_relative = self.launcher. \
+            get_screen_section(45, RIGHT_IMAGE,
+                               bottom_section, cords_relative)
+
+        cords = self.launcher.find_target(
+            bottom_section,
+            self.launcher.target_templates('setout'))
+        if not cords:
+            raise ZombieException("No set-out button found")
+        btn_image = bottom_section[cords.start_y:cords.end_y,
+                    cords.start_x:cords.end_x]
+        white_min = (180, 180, 180)
+        white_max = (255, 255, 255)
+        image_processed = cv2.inRange(btn_image, white_min, white_max)
+        rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 5))
+        tophat = cv2.morphologyEx(cv2.cvtColor(btn_image, cv2.COLOR_BGR2GRAY),
+                                  cv2.MORPH_TOPHAT,
+                                  rectKernel)
+        custom_config = r'-c tessedit_char_blacklist=/\|= ' \
+                        r'--oem 3 --psm 6'
+        text = get_text_from_image(
+            image_processed, custom_config).strip().lower()
+        text2 = get_text_from_image(
+            tophat).strip().lower()
+        print(f"{text} --- {text2}")
+        print('----------------------------------')
+
+        time_section = bottom_section[cords.start_y-35:cords.start_y,
+                       cords.start_x:cords.end_x-20]
+        display_image(time_section)
+        cv2.imwrite('time7.png', time_section)
+
+        if 'set' not in f"{text} {text2}":
+            raise ZombieException("No set-out text found")
+
+    def get_set_out_time(self, image):
+        """
+        Extracts the set out time from the given image
+
+        :return:
+        """
+        white_min = (135, 135, 135)
+        white_max = (200, 200, 200)
+        white_channel = cv2.inRange(image, white_min, white_max)
+        custom_config = r'-c tessedit_char_whitelist=:0123456789 ' \
+                        r'--oem 3 --psm 6 '
+
+        result = get_text_from_image(white_channel,  custom_config)
+        if not result:
+            rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
+            tophat = cv2.morphologyEx(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
+                                      cv2.MORPH_TOPHAT,
+                                      rectKernel)
+            result = get_text_from_image(white_channel, custom_config)
+            if not result:
+                raise ZombieException("Can not extract set out time")
+
+
+
 
 

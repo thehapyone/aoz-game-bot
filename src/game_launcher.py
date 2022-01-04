@@ -52,8 +52,11 @@ class GameLauncher:
         "outside-icon": str(cwd.joinpath("data", "game", "outside_icon")),
         "radar": str(cwd.joinpath("data", "game", "radar")),
         "go-button": str(cwd.joinpath("data", "game", "go_button")),
+        "setout": str(cwd.joinpath("data", "game", "setout")),
         "zombie-arrow": str(cwd.joinpath("data", "game",
                                          "zombie_arrow")),
+        "zombie-attack": str(cwd.joinpath("data", "game",
+                                          "zombie_attack")),
         "zombie-decrease": str(cwd.joinpath("data", "game", "zombie_decrease")),
         "zombie-increase": str(cwd.joinpath("data", "game",
                                             "zombie_increase")),
@@ -145,9 +148,9 @@ class GameLauncher:
             self._mouse.move(center_x, center_y)
             self._mouse.click()
             # wait for the game to load
-            time.sleep(10)
+            time.sleep(1)
             # now we click on the reward that popups on the game screen.
-            self.get_rewards()
+            #self.get_rewards()
             # self game is alive now.
             self.log_message("Game now active")
             # shake to collect available resources

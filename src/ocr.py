@@ -35,7 +35,7 @@ def ocr_from_contour(image: np.ndarray,
     return "".join(result)
 
 
-def get_text_from_image(image: np.ndarray, config: str = None) -> str:
+def get_text_from_image(image: np.ndarray, config: str = '') -> str:
     """
     Perform OCR on a given image and returns the detected
     text
