@@ -6,9 +6,9 @@ import cv2
 import numpy as np
 
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
-    TOP_IMAGE
+    TOP_IMAGE, ZOMBIE_MENU
 from src.exceptions import ZombieException
-from src.game_launcher import GameLauncher, display_image
+from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates
 from src.ocr import get_text_from_image, ocr_from_contour
 from src.radar import Radar
@@ -27,14 +27,15 @@ class Zombies:
      - get the current level of zombie for the user --- done
      - increase and decrease the zombie level. -- done
      - get the current zombie level --- done
-     - click on go to find any available zombie
-     - search and find the arrow that shows for about 6 secs before disappearing
-     - click on the given zombie (confirm it is the right zombie level)
-     - attack the zombie
-     - set out with the default formation
+     - click on go to find any available zombie --- done
+     - search and find the arrow that shows for about 6 secs
+     before disappearing --- done
+     - click on the given zombie (confirm it is the right zombie level) --- done
+     - attack the zombie --- done
+     - set out with the default formation --- done
      How do I know the zombie has been killed?
      - check the coordinate of the zombie and confirm the zombie is no more?
-     - wait for period of time
+     - wait for period of time --- done
 
     How do I know my attack troops have returned?
      - I can get the duration time to the target during 'set out' and
@@ -45,6 +46,8 @@ class Zombies:
      - continue attacks as far mobility is greater than given limit.
 
     """
+    # time for an attack of a zombie in secs
+    _attack_duration = 5
 
     def __init__(self, launcher: GameLauncher):
         self._fuel = None
@@ -113,14 +116,14 @@ class Zombies:
                      new_x:end_x,
                      ]
         processed_image = self.process_fuel_image(fuel_image)
-        custom_config = r'-c tessedit_char_blacklist=-/\| --oem 3 --psm 6 ' \
+        custom_config = r'-c tessedit_char_blacklist=-/.\| --oem 3 --psm 6 ' \
                         r'outputbase digits'
 
         # extract the fuel value
         fuel_value = get_text_from_image(processed_image, custom_config)
         self.launcher.log_message(f"Current fuel - {fuel_value}")
         if fuel_value:
-            return int(fuel_value.strip())
+            return int(float(fuel_value.strip()))
         raise ZombieException("Fuel value not readable")
 
     def get_zombie_max(self) -> int:
@@ -189,6 +192,16 @@ class Zombies:
         self.radar.select_radar_menu(6)
         self.get_zombie_increment_position()
         self._max_level = self.get_zombie_max()
+        # clear radar screen
+        self.launcher.mouse.set_position(
+            self.launcher.app_coordinates.start_x,
+            self.launcher.app_coordinates.start_y
+        )
+        center = GameHelper.get_center(
+            self.launcher.app_coordinates)
+        self.launcher.mouse.move(center)
+        self.launcher.mouse.click()
+        time.sleep(0.5)
 
     def get_zombie_current_level(self):
         """
@@ -291,7 +304,9 @@ class Zombies:
     def find_zombie(self, level: int):
         """
         Find the a particular zombie of a given level.
-        :return:
+
+        :param level: The target zombie level.
+        :returns: None
         """
         self.set_zombie_level(level)
         button = self.radar.go_button
@@ -326,13 +341,12 @@ class Zombies:
         self.launcher.mouse.click()
         time.sleep(0.5)
 
-    def attack_zombie(self):
+    def attack_zombie(self) -> int:
         """
         Attack the current zombie shown on the display screen. It finds
         the zombie attack button and clicks on it.
 
-        :param self:
-        :return:
+        :return: The set out time.
         """
         self.launcher.log_message(
             '---------- Finding attack button --------------')
@@ -347,23 +361,42 @@ class Zombies:
             self.launcher.target_templates('zombie-attack'))
         if not cords:
             raise ZombieException("No zombie attack button found")
-        display_image(zombie_area_image[cords.start_y:cords.end_y,
-                      cords.start_x:cords.end_x])
+
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
         self.launcher.mouse.set_position(cords_relative.start_x,
                                          cords_relative.start_y)
         center = GameHelper.get_center(cords_relative)
-        self.launcher.mouse.move(*center)
+        self.launcher.mouse.move(center)
         time.sleep(0.8)
         self.launcher.mouse.click()
+        # send out fleet to the zombies
+        time.sleep(5)
+        time_out = self.send_fleet()
+        self.launcher.log_message(f'----- time to target ----- {time_out}')
+        return time_out
 
-    def find_set_out(self):
+    def send_fleet(self) -> int:
+        """
+        Sends out a troop fleet out to the target and also returns their set
+        out time.
+
+        :return: The troop set out time.
+        """
+        position, time_out = self.find_set_out()
+        self.launcher.mouse.set_position(position.start_x,
+                                         position.start_y)
+        time.sleep(0.8)
+        self.launcher.mouse.move(GameHelper.get_center(position))
+        self.launcher.mouse.click()
+        return time_out
+
+    def find_set_out(self) -> tuple[Coordinates, int]:
         """
         Finds out the set out button and also extract the time of trip.
 
-        :return:
+        :return: The set out button coordinates and the set out time.
         """
         bottom_section, cords_relative = self.launcher. \
             get_screen_section(13, BOTTOM_IMAGE)
@@ -377,13 +410,18 @@ class Zombies:
             self.launcher.target_templates('setout'))
         if not cords:
             raise ZombieException("No set-out button found")
+        cords_relative = GameHelper. \
+            get_relative_coordinates(
+            cords_relative, cords)
+        '''
         btn_image = bottom_section[cords.start_y:cords.end_y,
                     cords.start_x:cords.end_x]
         white_min = (180, 180, 180)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(btn_image, white_min, white_max)
         rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 5))
-        tophat = cv2.morphologyEx(cv2.cvtColor(btn_image, cv2.COLOR_BGR2GRAY),
+        tophat = cv2.morphologyEx(cv2.cvtColor(btn_image,
+                                               cv2.COLOR_BGR2GRAY),
                                   cv2.MORPH_TOPHAT,
                                   rectKernel)
         custom_config = r'-c tessedit_char_blacklist=/\|= ' \
@@ -392,40 +430,33 @@ class Zombies:
             image_processed, custom_config).strip().lower()
         text2 = get_text_from_image(
             tophat).strip().lower()
-        print(f"{text} --- {text2}")
-        print('----------------------------------')
-
-        time_section = bottom_section[cords.start_y-35:cords.start_y,
-                       cords.start_x:cords.end_x-20]
-        display_image(time_section)
-        cv2.imwrite('time7.png', time_section)
-
         if 'set' not in f"{text} {text2}":
-            raise ZombieException("No set-out text found")
+            raise ZombieException("No set-out text found -- ")
+        '''
 
-    def get_set_out_time(self, image):
+        time_section = bottom_section[cords.start_y - 35:cords.start_y,
+                       cords.start_x:cords.end_x - 20]
+        set_time = self.radar.get_set_out_time(time_section)
+        return cords_relative, set_time
+
+    def kill_zombies(self, level: int, min_mobility: int = 10):
         """
-        Extracts the set out time from the given image
+        Function responsible for killing zombies in the map
 
+        :param level: The zombie level to target
+        :param min_mobility: The min mobility to stop killing zombie
         :return:
         """
-        white_min = (135, 135, 135)
-        white_max = (200, 200, 200)
-        white_channel = cv2.inRange(image, white_min, white_max)
-        custom_config = r'-c tessedit_char_whitelist=:0123456789 ' \
-                        r'--oem 3 --psm 6 '
-
-        result = get_text_from_image(white_channel,  custom_config)
-        if not result:
-            rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
-            tophat = cv2.morphologyEx(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
-                                      cv2.MORPH_TOPHAT,
-                                      rectKernel)
-            result = get_text_from_image(white_channel, custom_config)
-            if not result:
-                raise ZombieException("Can not extract set out time")
-
-
-
-
-
+        self.zombie_city()
+        min_mobility = min_mobility if min_mobility > 10 else 10
+        self.launcher.log_message(
+            f"------ Killing zombies at level {level} --------")
+        while self.fuel >= min_mobility:
+            # set to the radar view
+            self.radar.select_radar_menu(ZOMBIE_MENU)
+            self.find_zombie(level)
+            set_time = self.attack_zombie()
+            waiting_time = (set_time * 2) + self._attack_duration
+            time.sleep(waiting_time)
+        self.launcher.log_message(
+            '------ Fuel is below minimum level -------')

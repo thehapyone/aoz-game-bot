@@ -11,7 +11,7 @@ ocr.pytesseract.tesseract_cmd = \
 
 cwd = Path(__file__).cwd()
 
-main_image = str(cwd.joinpath("time6.png"))
+main_image = str(cwd.joinpath("time.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
@@ -43,8 +43,8 @@ def display_image(image, name: str = None):
 green_min = (0,105,10)
 green_max = (16,255,75)
 
-white_min = (135,135,135)
-white_max = (200,200,200)
+white_min = (130,130,130)
+white_max = (220,220,220)
 
 black_min = (2,2,2)
 black_max = (65,65,65)
@@ -99,7 +99,7 @@ try:
     display_image(thresh, 'dilate')
 
     #display_image(black_channel)
-    #display_image(white_channel)
+    display_image(white_channel)
 
 
     print(ocr.image_to_string(img))

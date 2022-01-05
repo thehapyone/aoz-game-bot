@@ -2,6 +2,7 @@
 import time
 
 import pynput
+from multipledispatch import dispatch
 from pynput.keyboard import Key
 from pynput.mouse import Listener, Button, Controller
 
@@ -45,9 +46,17 @@ class MouseController:
         """Get the current mouse position"""
         return self._mouse.position
 
-    def move(self, dx, dy):
+    @dispatch(tuple)
+    def move(self, center: tuple):
+        """Move mouse to a relative position"""
+        self._mouse.move(*center)
+        time.sleep(0.5)
+
+    @dispatch(int, int)
+    def move(self, dx: int, dy: int):
         """Move mouse to a relative position"""
         self._mouse.move(dx, dy)
+        time.sleep(0.5)
 
     def click(self,
               button: Button = Button.left,

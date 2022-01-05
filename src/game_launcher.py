@@ -8,7 +8,8 @@ import imutils
 import numpy as np
 from mss import mss
 
-from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE
+from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE, INSIDE_VIEW, \
+    OUTSIDE_VIEW
 from src.exceptions import LauncherException
 from src.helper import Coordinates, GameHelper
 from src.listener import MouseController, KeyboardController
@@ -240,7 +241,8 @@ class GameLauncher:
     def get_bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
                                        Coordinates]:
         """
-        Gets the game button menu
+        Gets the game button menu.
+
         :return: An enum of the game menu.
         """
         bottom_menu, bottom_coordinates_relative = \
@@ -272,45 +274,46 @@ class GameLauncher:
         :return: None
         """
         bottom_image, _, coordinates = self.get_bottom_menu()
-        coords = self.find_target(
-            bottom_image, self.target_templates('city-icon'))
-        if view == 1:
+        cords = self.find_target(
+            bottom_image,
+            self.target_templates('city-icon'),
+            threshold=0.2
+        )
+        if view == INSIDE_VIEW:
             # go to inside city view
-            if coords:
-                self.log_message("Now in city view mode")
+            if cords:
+                self.log_message(
+                    "------ Now in city view mode ------")
                 return
-            coords = self.find_target(
-                bottom_image, self.target_templates('outside-icon'))
-            if not coords:
+            cords = self.find_target(
+                bottom_image,
+                self.target_templates('outside-icon'))
+            if not cords:
                 raise LauncherException(
                     "View changing could not be completed.")
-            center = GameHelper.get_center(coords)
+            center = GameHelper.get_center(cords)
             self._mouse.set_position(coordinates.start_x,
                                      coordinates.start_y)
-            self._mouse.move(*center)
-            time.sleep(2)
+            self._mouse.move(center)
             self._mouse.click()
             time.sleep(7)
-            self.log_message("Now in city view mode")
+            self.log_message(
+                "------ Now in city view mode ------")
             return
-        if view == 2:
+        if view == OUTSIDE_VIEW:
             # go to outside city view
-            if not coords:
-                self.log_message("Now in outside city view mode")
+            if not cords:
+                self.log_message(
+                    "------ Now in outside city view mode ------")
                 return
-            coords = self.find_target(
-                bottom_image, self.target_templates('city-icon'))
-            if not coords:
-                raise LauncherException(
-                    "View changing could not be completed.")
-            center = GameHelper.get_center(coords)
+            center = GameHelper.get_center(cords)
             self._mouse.set_position(coordinates.start_x,
                                      coordinates.start_y)
             self._mouse.move(*center)
-            time.sleep(2)
             self._mouse.click()
             time.sleep(7)
-            self.log_message("Now in outside city view mode")
+            self.log_message(
+                "------ Now in outside city view mode ------")
             return
         raise LauncherException(f"View mode {view} not supported")
 
@@ -349,12 +352,19 @@ class GameLauncher:
                 "Bluestack screen not detected. Bot can't proceed")
         self._app_coordinates = location
 
-    def find_target(self, reference: np.ndarray, target: List[np.ndarray]) \
+    def find_target(self, reference: np.ndarray,
+                    target: List[np.ndarray],
+                    threshold: float = None) \
             -> Optional[Coordinates]:
         """
         Helper function for finding the coordinates of the
-        of a given target in a reference image.
-        It returns the bounding box location of the game app.
+        of a given target in a reference image. It returns the bounding box
+        location of the game app.
+
+        :param reference: The reference input image.
+        :param target: The template target.
+        :param threshold: The target threshold for detection.
+        :returns: Returns the coordinates of the target.
         """
         rgb_channel = True if len(reference.shape) == 3 else False
         # track matching history
@@ -409,7 +419,8 @@ class GameLauncher:
             feature_vec_template, feature_vec_match)
         self.log_message(f"Cosine score: {cosine_score}")
 
-        if min_val < 0.55 and cosine_score > 0.50:
+        threshold = threshold if threshold else 0.55
+        if min_val < threshold and cosine_score > 0.50:
             if self._debug:
                 self.log_message(
                     f"Region is TopLeft: ({start_x}, {start_y}) and "
@@ -444,3 +455,7 @@ class GameLauncher:
         """Prints to log if enabled"""
         if self._debug:
             print(message)
+
+    @property
+    def app_coordinates(self):
+        return self._app_coordinates
