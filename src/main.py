@@ -1,3 +1,5 @@
+import time
+
 from src.game_launcher import GameLauncher
 from src.listener import MouseController, KeyboardController
 from src.zombies import Zombies
@@ -10,7 +12,9 @@ if __name__ == '__main__':
     launcher.start_game()
 
     # zombie
+    time.sleep(5)
     zombie = Zombies(launcher)
-    zombie.initialize_zombie()
+    #zombie.initialize_zombie()
     print('-----------------------------------------')
-    zombie.kill_zombies(28, 15)
+    #zombie.kill_zombies(28)
+    zombie.find_zombie(14)

@@ -1,11 +1,56 @@
 """Holds all the helper or support methods"""
 import subprocess
-from typing import NamedTuple, Tuple, Optional
+from functools import partial, wraps
+from typing import NamedTuple, Tuple, Optional, Callable, Type
 
 import numpy as np
 from numpy import dot
 from numpy.linalg import norm
 from skimage.feature import hog
+
+
+def retry(
+        _func: Callable = None, *,
+        exception: Type[BaseException] = Exception,
+        message: str = None,
+        attempts: int = 1):
+    """
+    A retry decorator for retying a function that raised
+    a particular exception,
+
+    :return:
+    """
+
+    if _func is None:
+        return partial(retry,
+                       exception=exception,
+                       message=message,
+                       attempts=attempts)
+
+    @wraps(_func)
+    def wrapper(*args, **kwargs):
+        """
+        A wrapper function.
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        error_exception = None
+        for attempt in range(attempts):
+            try:
+                response = _func(*args, **kwargs)
+                return response
+            except exception as error:
+                error_exception = error
+                if message in str(error):
+                    print(f"------ Error in {_func.__name__}: Attempting "
+                          f"again with attempts {attempt+1}/{attempts}. Error "
+                          f"is {str(error)} -------")
+                    continue
+                raise error
+        raise error_exception
+    return wrapper
 
 
 class Coordinates(NamedTuple):

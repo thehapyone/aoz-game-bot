@@ -8,8 +8,8 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
     TOP_IMAGE, ZOMBIE_MENU
 from src.exceptions import ZombieException
-from src.game_launcher import GameLauncher
-from src.helper import GameHelper, Coordinates
+from src.game_launcher import GameLauncher, display_image
+from src.helper import GameHelper, Coordinates, retry
 from src.ocr import get_text_from_image, ocr_from_contour
 from src.radar import Radar
 
@@ -301,6 +301,9 @@ class Zombies:
         """
         self.launcher.set_view(OUTSIDE_VIEW)
 
+    @retry(exception=ZombieException,
+           message="No zombie arrow found",
+           attempts=2)
     def find_zombie(self, level: int):
         """
         Find the a particular zombie of a given level.
@@ -320,18 +323,26 @@ class Zombies:
         zombie_area_image, zombie_area_cords_relative = \
             self.launcher.get_screen_section(60, TOP_IMAGE)
         zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(80, BOTTOM_IMAGE,
+            self.launcher.get_screen_section(60, BOTTOM_IMAGE,
                                              zombie_area_image,
                                              zombie_area_cords_relative)
+        self.launcher.log_message(
+            '-------- Finding the zombie arrow --------')
         cords = self.launcher.find_target(
             zombie_area_image,
-            self.launcher.target_templates('zombie-arrow'))
+            self.launcher.target_templates('zombie-arrow'),
+            threshold=0.1
+        )
         if not cords:
-            raise ZombieException("No zombie found")
+            raise ZombieException("No zombie arrow found")
+        arrow = zombie_area_image[
+                cords.start_y:cords.end_y,
+                cords.start_x:cords.end_x
+                ]
+        display_image(arrow)
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
-
         self.launcher.mouse.set_position(cords_relative.start_x + 10,
                                          cords_relative.end_y + 80)
         time.sleep(0.2)
@@ -358,7 +369,9 @@ class Zombies:
                                              zombie_area_cords_relative)
         cords = self.launcher.find_target(
             zombie_area_image,
-            self.launcher.target_templates('zombie-attack'))
+            self.launcher.target_templates('zombie-attack'),
+            threshold=0.2
+        )
         if not cords:
             raise ZombieException("No zombie attack button found")
 
