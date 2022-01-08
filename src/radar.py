@@ -8,7 +8,7 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, RIGHT_IMAGE
 from src.exceptions import RadarException
 from src.game_launcher import GameLauncher
-from src.helper import Coordinates, GameHelper
+from src.helper import Coordinates, GameHelper, retry
 from src.ocr import get_text_from_image
 
 
@@ -44,6 +44,9 @@ class Radar:
             self._radar_coordinates = self.find_radar()
         return self._radar_coordinates
 
+    @retry(exception=RadarException,
+           message="Radar icon could not be found.",
+           attempts=2)
     def find_radar(self):
         """
         Finds the radar coordinates in the outside city

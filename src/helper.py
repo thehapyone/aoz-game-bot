@@ -9,6 +9,17 @@ from numpy.linalg import norm
 from skimage.feature import hog
 
 
+def singleton(cls):
+    """Make a class a Singleton class (only one instance)"""
+    @wraps(cls)
+    def wrapper_singleton(*args, **kwargs):
+        if not wrapper_singleton.instance:
+            wrapper_singleton.instance = cls(*args, **kwargs)
+        return wrapper_singleton.instance
+    wrapper_singleton.instance = None
+    return wrapper_singleton
+
+
 def retry(
         _func: Callable = None, *,
         exception: Type[BaseException] = Exception,

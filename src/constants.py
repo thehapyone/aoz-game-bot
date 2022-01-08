@@ -9,3 +9,10 @@ LEFT_IMAGE = 2
 RIGHT_IMAGE = 3
 
 ZOMBIE_MENU = 6
+
+# Farming type constants
+FARM_FOOD = 1
+FARM_OIL = 2
+FARM_STEEL = 3
+FARM_MINERAL = 4
+FARM_GOLD = 5

@@ -57,6 +57,21 @@ dilatekernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
 sqKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 try:
     img = img_original.copy()
+    print(img.shape)
+    area = img.copy()[10:30, 50:150]
+    t_h, t_w, _ = img.shape
+    target_area = img[:,
+                  int(0.2 * t_w):int(0.8 * t_w)
+                  ]
+
+    zeros = np.zeros_like(img)
+    zeros[:, int(0.2 * t_w):int(0.8 * t_w)] = target_area
+
+    print(int(0.8 * t_w))
+    display_image(img)
+    display_image(zeros)
+    exit(2)
+
     green_channel = img.copy()[:,:,1]
     blue_channel = img.copy()[:,:,0]
     red_channel = img.copy()[:,:,2]

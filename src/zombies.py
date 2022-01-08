@@ -8,7 +8,7 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
     TOP_IMAGE, ZOMBIE_MENU
 from src.exceptions import ZombieException
-from src.game_launcher import GameLauncher, display_image
+from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates, retry
 from src.ocr import get_text_from_image, ocr_from_contour
 from src.radar import Radar
@@ -102,6 +102,9 @@ class Zombies:
             return green_channel
         return white_channel
 
+    @retry(exception=ZombieException,
+           message="Fuel value not readable",
+           attempts=3)
     def _get_latest_fuel(self):
         """Get the current fuel value"""
         game_screen = self.launcher.get_game_screen()
@@ -318,28 +321,34 @@ class Zombies:
         self.launcher.mouse.move(*center)
         time.sleep(0.5)
         self.launcher.mouse.click()
-        time.sleep(2.5)
+        time.sleep(4)
         # select the zombie
         zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(60, TOP_IMAGE)
+            self.launcher.get_screen_section(50, TOP_IMAGE)
         zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(60, BOTTOM_IMAGE,
+            self.launcher.get_screen_section(45, BOTTOM_IMAGE,
                                              zombie_area_image,
                                              zombie_area_cords_relative)
+
+        zeros = np.zeros_like(zombie_area_image)
+        t_h, t_w, _ = zombie_area_image.shape
+        target_area = zombie_area_image[:,
+                      int(0.3 * t_w):int(0.7 * t_w)
+        ]
+        zeros[:, int(0.3 * t_w):int(0.7 * t_w)] = target_area
         self.launcher.log_message(
             '-------- Finding the zombie arrow --------')
         cords = self.launcher.find_target(
-            zombie_area_image,
+            zeros,
             self.launcher.target_templates('zombie-arrow'),
             threshold=0.1
         )
         if not cords:
             raise ZombieException("No zombie arrow found")
-        arrow = zombie_area_image[
+        arrow = zeros[
                 cords.start_y:cords.end_y,
                 cords.start_x:cords.end_x
                 ]
-        display_image(arrow)
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
@@ -350,8 +359,11 @@ class Zombies:
         self.launcher.mouse.click()
         time.sleep(0.8)
         self.launcher.mouse.click()
-        time.sleep(0.5)
+        time.sleep(1)
 
+    @retry(exception=ZombieException,
+           message="No zombie attack button found",
+           attempts=2)
     def attack_zombie(self) -> int:
         """
         Attack the current zombie shown on the display screen. It finds
@@ -405,6 +417,9 @@ class Zombies:
         self.launcher.mouse.click()
         return time_out
 
+    @retry(exception=ZombieException,
+           message="No set-out button found",
+           attempts=2)
     def find_set_out(self) -> tuple[Coordinates, int]:
         """
         Finds out the set out button and also extract the time of trip.

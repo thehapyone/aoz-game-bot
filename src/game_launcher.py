@@ -296,7 +296,7 @@ class GameLauncher:
                                      coordinates.start_y)
             self._mouse.move(center)
             self._mouse.click()
-            time.sleep(7)
+            time.sleep(10)
             self.log_message(
                 "------ Now in city view mode ------")
             return
@@ -311,7 +311,7 @@ class GameLauncher:
                                      coordinates.start_y)
             self._mouse.move(*center)
             self._mouse.click()
-            time.sleep(7)
+            time.sleep(10)
             self.log_message(
                 "------ Now in outside city view mode ------")
             return
