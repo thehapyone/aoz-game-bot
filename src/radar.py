@@ -156,25 +156,30 @@ class Radar:
         """
         white_min = (130, 130, 130)
         white_max = (220, 220, 220)
-        white_channel = cv2.inRange(image, white_min, white_max)
+        t_h, t_w, _ = image.shape
+        target_area = image[:,
+                      int(0.24 * t_w):int(0.75 * t_w)
+                      ]
+        image_with_zeros = np.zeros_like(image)
+        image_with_zeros[:, int(0.24 * t_w):int(0.75 * t_w)] = target_area
+
+        white_channel = cv2.inRange(image_with_zeros, white_min, white_max)
         custom_config = r'-c tessedit_char_whitelist=:0123456789 ' \
                         r'--oem 3 --psm 6 '
-        result = get_text_from_image(white_channel, custom_config)
-
-        if not result:
+        result = get_text_from_image(white_channel, custom_config).strip()
+        if not result or ':' not in result:
             rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
-            top_hat = cv2.morphologyEx(cv2.cvtColor(image,
+            top_hat = cv2.morphologyEx(cv2.cvtColor(image_with_zeros,
                                                     cv2.COLOR_BGR2GRAY),
                                        cv2.MORPH_TOPHAT,
                                        rect_kernel)
-
-            result = get_text_from_image(top_hat, custom_config)
-            print(f'----- result ----- raw = {result}')
+            result = get_text_from_image(top_hat, custom_config).strip()
+            print(f'----- result ----- raw top hat = {result}')
 
             if not result:
                 raise RadarException("Can not extract set out time")
         # parse to date time
-        timestamp = result.strip().split(":")
+        timestamp = result.split(":")
         timestamp = [int(value) for value in timestamp]
         print(f'----- timestamp ----- raw = {result}')
         if len(timestamp) == 3:
@@ -182,8 +187,24 @@ class Radar:
                 hours=timestamp[0],
                 minutes=timestamp[1],
                 seconds=timestamp[2])
-        else:
+        elif len(timestamp) == 2:
             delta = timedelta(
                 minutes=timestamp[0],
                 seconds=timestamp[1])
+        else:
+            # we try to extract it out manually
+            if len(result) == 6:
+                delta = timedelta(
+                    hours=int(result[0:2]),
+                    minutes=int(result[2:4]),
+                    seconds=int(result[4:6]))
+            elif len(result) == 4:
+                delta = timedelta(
+                    minutes=int(result[0:2]),
+                    seconds=int(result[2:4]))
+            else:
+                cv2.imwrite('time-error.png', image)
+                raise RadarException(
+                    "Could not extract set out time."
+                    f"Invalid time detected - {result}")
         return int(delta.total_seconds())

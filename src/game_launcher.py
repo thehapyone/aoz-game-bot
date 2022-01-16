@@ -163,19 +163,21 @@ class GameLauncher:
         """Returns te path for the screenshot"""
         return str(self.cwd.joinpath("data", "screenshot.png"))
 
-    def take_screenshot(self) -> None:
+    def get_screenshot(self) -> np.ndarray:
         """Takes a screenshot of the current monitor screen"""
         self._mss.shot(mon=1, output=self.screen_image_path)
         self._mss.close()
+        screen_image = cv.imread(self.screen_image_path, self.IMG_COLOR)
+        return screen_image
 
     def get_game_screen(self) -> np.ndarray:
         """
         Returns the current game screen. Used when the game screen has
         been updated.
-        :return:
+
+        :returns: The current game screen.
         """
-        self.take_screenshot()
-        screen_image = cv.imread(self.screen_image_path, self.IMG_COLOR)
+        screen_image = self.get_screenshot()
         start_x, start_y, end_x, end_y = self._app_coordinates
         game_screen = screen_image[start_y:end_y, start_x:end_x]
         return game_screen
@@ -341,10 +343,7 @@ class GameLauncher:
         :return:
         """
         # take the screenshot first
-        self.take_screenshot()
-        # load the screenshot to memory
-        screen_image = cv.imread(self.screen_image_path,
-                                 self.IMG_COLOR)
+        screen_image = self.get_screenshot()
         location = self.find_target(screen_image,
                                     self.target_templates('app'))
         if not location:

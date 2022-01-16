@@ -137,21 +137,27 @@ class MouseListener:
 
 if __name__ == '__main__':
     mouse = Controller()
-    handler = MouseListener(on_click=True, on_move=False)
-    '''
-    with handler:
-        print("Now starting")
-        handler.run()
-        print("done")
-    
-    # Read pointer position
-    print('The current pointer position is {0}'.format(
-        mouse.position))
-
-    mouse.position = (0, 0)
-    mouse.press(Button.right)
-    '''
+    handler = MouseListener(on_click=True, on_move=False,
+                            on_scroll=True)
     time.sleep(5)
-    keyboard = KeyboardController()
-    keyboard.shake()
+    print('setting mouse position')
+
+    mouse.position = (1343, 370)
+    time.sleep(1)
+    mouse.click(Button.left, 1)
+    time.sleep(5)
+
+    print('scrolling now')
+    time.sleep(1)
+    mouse.press(Button.left)
+    mouse.scroll(1, 0)
+    mouse.release(Button.left)
+    time.sleep(1)
+
+    #mouse.scroll(0, 50)
+
+    print(mouse.position)
     print("finished")
+    '''
+    (1343, 470)
+    '''

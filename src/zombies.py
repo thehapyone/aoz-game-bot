@@ -47,7 +47,7 @@ class Zombies:
 
     """
     # time for an attack of a zombie in secs
-    _attack_duration = 5
+    _attack_duration = 2
 
     def __init__(self, launcher: GameLauncher):
         self._fuel = None
@@ -55,6 +55,8 @@ class Zombies:
         self._max_level = None
         self._decrease_btn_cords: Optional[Coordinates] = None
         self._increase_btn_cords: Optional[Coordinates] = None
+        self._attack_btn_cords: Optional[Coordinates] = None
+        self._set_out_btn_cords: Optional[Coordinates] = None
         self.radar = Radar(self.launcher)
 
     @property
@@ -334,7 +336,7 @@ class Zombies:
         t_h, t_w, _ = zombie_area_image.shape
         target_area = zombie_area_image[:,
                       int(0.3 * t_w):int(0.7 * t_w)
-        ]
+                      ]
         zeros[:, int(0.3 * t_w):int(0.7 * t_w)] = target_area
         self.launcher.log_message(
             '-------- Finding the zombie arrow --------')
@@ -373,31 +375,34 @@ class Zombies:
         """
         self.launcher.log_message(
             '---------- Finding attack button --------------')
-        zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(45, BOTTOM_IMAGE)
-        zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(50, TOP_IMAGE,
-                                             zombie_area_image,
-                                             zombie_area_cords_relative)
-        cords = self.launcher.find_target(
-            zombie_area_image,
-            self.launcher.target_templates('zombie-attack'),
-            threshold=0.2
-        )
-        if not cords:
-            raise ZombieException("No zombie attack button found")
+        if not self._attack_btn_cords:
+            zombie_area_image, zombie_area_cords_relative = \
+                self.launcher.get_screen_section(45, BOTTOM_IMAGE)
+            zombie_area_image, zombie_area_cords_relative = \
+                self.launcher.get_screen_section(50, TOP_IMAGE,
+                                                 zombie_area_image,
+                                                 zombie_area_cords_relative)
+            cords = self.launcher.find_target(
+                zombie_area_image,
+                self.launcher.target_templates('zombie-attack'),
+                threshold=0.2
+            )
+            if not cords:
+                raise ZombieException("No zombie attack button found")
 
-        cords_relative = GameHelper. \
-            get_relative_coordinates(
-            zombie_area_cords_relative, cords)
-        self.launcher.mouse.set_position(cords_relative.start_x,
-                                         cords_relative.start_y)
-        center = GameHelper.get_center(cords_relative)
+            cords_relative = GameHelper. \
+                get_relative_coordinates(
+                zombie_area_cords_relative, cords)
+            self._attack_btn_cords = cords_relative
+
+        self.launcher.mouse.set_position(self._attack_btn_cords.start_x,
+                                         self._attack_btn_cords.start_y)
+        center = GameHelper.get_center(self._attack_btn_cords)
         self.launcher.mouse.move(center)
-        time.sleep(0.8)
+        time.sleep(0.5)
         self.launcher.mouse.click()
         # send out fleet to the zombies
-        time.sleep(5)
+        time.sleep(3)
         time_out = self.send_fleet()
         self.launcher.log_message(f'----- time to target ----- {time_out}')
         return time_out
@@ -426,21 +431,22 @@ class Zombies:
 
         :return: The set out button coordinates and the set out time.
         """
-        bottom_section, cords_relative = self.launcher. \
-            get_screen_section(13, BOTTOM_IMAGE)
+        if not self._set_out_btn_cords:
+            bottom_section, cords_relative = self.launcher. \
+                get_screen_section(13, BOTTOM_IMAGE)
 
-        bottom_section, cords_relative = self.launcher. \
-            get_screen_section(45, RIGHT_IMAGE,
-                               bottom_section, cords_relative)
-
-        cords = self.launcher.find_target(
-            bottom_section,
-            self.launcher.target_templates('setout'))
-        if not cords:
-            raise ZombieException("No set-out button found")
-        cords_relative = GameHelper. \
-            get_relative_coordinates(
-            cords_relative, cords)
+            bottom_section, cords_relative = self.launcher. \
+                get_screen_section(45, RIGHT_IMAGE,
+                                   bottom_section, cords_relative)
+            cords = self.launcher.find_target(
+                bottom_section,
+                self.launcher.target_templates('setout'))
+            if not cords:
+                raise ZombieException("No set-out button found")
+            cords_relative = GameHelper. \
+                get_relative_coordinates(
+                cords_relative, cords)
+            self._set_out_btn_cords = cords_relative
         '''
         btn_image = bottom_section[cords.start_y:cords.end_y,
                     cords.start_x:cords.end_x]
@@ -461,11 +467,13 @@ class Zombies:
         if 'set' not in f"{text} {text2}":
             raise ZombieException("No set-out text found -- ")
         '''
-
-        time_section = bottom_section[cords.start_y - 35:cords.start_y,
-                       cords.start_x:cords.end_x - 20]
+        time_section = self.launcher.get_screenshot()[
+                       self._set_out_btn_cords.start_y - 35:
+                       self._set_out_btn_cords.start_y,
+                       self._set_out_btn_cords.start_x:
+                       self._set_out_btn_cords.end_x - 20]
         set_time = self.radar.get_set_out_time(time_section)
-        return cords_relative, set_time
+        return self._set_out_btn_cords, set_time
 
     def kill_zombies(self, level: int, min_mobility: int = 10):
         """

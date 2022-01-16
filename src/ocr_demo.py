@@ -11,7 +11,7 @@ ocr.pytesseract.tesseract_cmd = \
 
 cwd = Path(__file__).cwd()
 
-main_image = str(cwd.joinpath("time.png"))
+main_image = str(cwd.joinpath("time8.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
@@ -61,25 +61,24 @@ try:
     area = img.copy()[10:30, 50:150]
     t_h, t_w, _ = img.shape
     target_area = img[:,
-                  int(0.2 * t_w):int(0.8 * t_w)
+                  int(0.25 * t_w):int(0.8 * t_w)
                   ]
 
     zeros = np.zeros_like(img)
-    zeros[:, int(0.2 * t_w):int(0.8 * t_w)] = target_area
+    zeros[:, int(0.25 * t_w):int(0.8 * t_w)] = target_area
 
     print(int(0.8 * t_w))
     display_image(img)
     display_image(zeros)
-    exit(2)
 
     green_channel = img.copy()[:,:,1]
     blue_channel = img.copy()[:,:,0]
     red_channel = img.copy()[:,:,2]
 
-    black_channel = cv2.inRange(img, black_min, black_max)
-    white_channel = cv2.inRange(img, white_min, white_max)
+    black_channel = cv2.inRange(zeros, black_min, black_max)
+    white_channel = cv2.inRange(zeros, white_min, white_max)
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(zeros, cv2.COLOR_BGR2GRAY)
     display_image(green_channel)
 
     display_image(img)
