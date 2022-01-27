@@ -158,10 +158,10 @@ class Radar:
         white_max = (220, 220, 220)
         t_h, t_w, _ = image.shape
         target_area = image[:,
-                      int(0.24 * t_w):int(0.75 * t_w)
+                      int(0.22 * t_w):int(0.75 * t_w)
                       ]
         image_with_zeros = np.zeros_like(image)
-        image_with_zeros[:, int(0.24 * t_w):int(0.75 * t_w)] = target_area
+        image_with_zeros[:, int(0.22 * t_w):int(0.75 * t_w)] = target_area
 
         white_channel = cv2.inRange(image_with_zeros, white_min, white_max)
         custom_config = r'-c tessedit_char_whitelist=:0123456789 ' \

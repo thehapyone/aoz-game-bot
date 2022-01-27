@@ -2,16 +2,17 @@ from pathlib import Path
 
 import cv2
 import cv2 as cv
-import imutils
 import numpy as np
 import pytesseract as ocr
+
+from src.zombies import Zombies
 
 ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 cwd = Path(__file__).cwd()
 
-main_image = str(cwd.joinpath("time8.png"))
+main_image = str(cwd.joinpath("fuel-error2.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
@@ -61,13 +62,22 @@ try:
     area = img.copy()[10:30, 50:150]
     t_h, t_w, _ = img.shape
     target_area = img[:,
-                  int(0.25 * t_w):int(0.8 * t_w)
+                  int(0.22 * t_w):int(0.75 * t_w)
                   ]
+    green_channel = img.copy()[:,:,1]
+    blue_channel = img.copy()[:,:,0]
+    red_channel = img.copy()[:,:,2]
+    image22 = Zombies.process_fuel_image(img)
+    custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
+                        r'--oem 3 --psm 6 '
+
+    display_image(image22)
+    print(ocr.image_to_data(image22, config=custom_config))
+    exit(2)
 
     zeros = np.zeros_like(img)
-    zeros[:, int(0.25 * t_w):int(0.8 * t_w)] = target_area
+    zeros[:, int(0.22 * t_w):int(0.75 * t_w)] = target_area
 
-    print(int(0.8 * t_w))
     display_image(img)
     display_image(zeros)
 
@@ -86,7 +96,7 @@ try:
 
     tophat = cv2.morphologyEx(gray, cv2.MORPH_TOPHAT, rectKernel)
     display_image(tophat, 'tophat')
-
+    '''
     # compute the Scharr gradient of the tophat image, then scale
     # the rest back into the range [0, 255]
     gradX = cv2.Sobel(tophat, ddepth=cv2.CV_32F, dx=1, dy=0,
@@ -111,7 +121,7 @@ try:
 
     #thresh = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, dilatekernel)
     display_image(thresh, 'dilate')
-
+    '''
     #display_image(black_channel)
     display_image(white_channel)
 
@@ -131,63 +141,19 @@ try:
 
 
     print('--------------- white channel --------------------')
-    print(ocr.image_to_string(white_channel,  config=custom_config))
-    print(ocr.image_to_string(white_channel,  config=custom_config2))
+    print(ocr.image_to_string(image22,  config=custom_config))
+    print(ocr.image_to_string(image22,  config=custom_config2))
 
     print('---------------  --------------------')
 
-    print(ocr.image_to_string(white_channel,  config=custom_config2))
-    print(ocr.image_to_string(white_channel,  config=custom_config3))
-    print(ocr.image_to_string(white_channel,  config=custom_config4))
-    print(ocr.image_to_string(white_channel,  config=custom_config5))
-    print(ocr.image_to_string(white_channel))
-    print(ocr.image_to_string(img))
-
-    digitCnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
-                                 cv2.CHAIN_APPROX_SIMPLE)
-    digitCnts = imutils.grab_contours(digitCnts)
+    print(ocr.image_to_string(image22,  config=custom_config2))
+    print(ocr.image_to_string(image22,  config=custom_config3))
+    print(ocr.image_to_string(image22,  config=custom_config4))
+    print(ocr.image_to_string(image22,  config=custom_config5))
+    print(ocr.image_to_string(image22))
+    print(ocr.image_to_string(image22))
 
     custom_config5 = r'-c tessedit_char_whitelist=0123456789 --oem 3 --psm 10'
-
-    '''
-    for c in digitCnts:
-        # compute the bounding box of the individual digit, extract
-        # the digit, and resize it to have the same fixed size as
-        # the reference OCR-A images
-        (x, y, w, h) = cv2.boundingRect(c)
-        roi = white_channel[y:y + h, x:x + w]
-        display_image(roi)
-        roi = cv2.resize(roi, (57, 88))
-
-    locs = []
-    # loop over the contours
-    print(len(digitCnts))
-    for (i, c) in enumerate(digitCnts):
-        # compute the bounding box of the contour, then use the
-        # bounding box coordinates to derive the aspect ratio
-        (x, y, w, h) = cv2.boundingRect(c)
-        ar = w / float(h)
-        print(ar, w, h)
-        # since credit cards used a fixed size fonts with 4 groups
-        # of 4 digits, we can prune potential contours based on the
-        # aspect ratio
-        if ar > 2.5 and ar < 6.5:
-            # contours can further be pruned on minimum/maximum width
-            # and height
-            print('-----------------')
-            print(ar, w, h)
-            if (w > 40 and w < 100) and (h > 12 and h < 25):
-                # append the bounding box region of the digits group
-                # to our locations list
-                print('hhhh')
-                locs.append((x, y, w, h))
-                roi = gray.copy()[y:y + h, x:x + w]
-                roi2 = cv2.threshold(roi, 0, 255,
-                                       cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-                image22 = np.zeros(gray.shape)
-                image22[y:y + h, x:x + w] = roi2
-                display_image(image22, 'roi')
-    '''
 
     print('--------------- black channel --------------------')
     print(ocr.image_to_string(black_channel, config=custom_config2))

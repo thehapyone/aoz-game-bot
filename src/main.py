@@ -16,5 +16,6 @@ if __name__ == '__main__':
     zombie = Zombies(launcher)
     zombie.initialize_zombie()
     print('------------------------.-----------------')
-    zombie.kill_zombies(19)
+    zombie.kill_zombies(20)
     #zombie.find_zombie(15)
+    #zombie.find_set_out()

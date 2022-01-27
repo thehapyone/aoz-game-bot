@@ -149,9 +149,7 @@ if __name__ == '__main__':
 
     print('scrolling now')
     time.sleep(1)
-    mouse.press(Button.left)
-    mouse.scroll(1, 0)
-    mouse.release(Button.left)
+    mouse.scroll(0, -5)
     time.sleep(1)
 
     #mouse.scroll(0, 50)

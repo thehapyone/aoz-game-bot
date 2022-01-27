@@ -90,9 +90,9 @@ class Zombies:
         :param image: A BGR image.
         :return: A threshold binary image
         """
-        green_min = (0, 105, 10)
-        green_max = (16, 255, 75)
-        white_min = (100, 100, 100)
+        green_min = (0, 140, 10)
+        green_max = (7, 255, 75)
+        white_min = (110, 110, 110)
         white_max = (255, 255, 255)
 
         green_channel = cv2.inRange(image, green_min, green_max)
@@ -121,14 +121,17 @@ class Zombies:
                      new_x:end_x,
                      ]
         processed_image = self.process_fuel_image(fuel_image)
-        custom_config = r'-c tessedit_char_blacklist=-/.\| --oem 3 --psm 6 ' \
-                        r'outputbase digits'
+        custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
+                        r'--oem 3 --psm 6 '
 
         # extract the fuel value
         fuel_value = get_text_from_image(processed_image, custom_config)
         self.launcher.log_message(f"Current fuel - {fuel_value}")
         if fuel_value:
             return int(float(fuel_value.strip()))
+        # Fuel value not readable error.
+        cv2.imwrite('fuel-error2.png', fuel_image)
+        cv2.imwrite('fuel-error-processed.png', processed_image)
         raise ZombieException("Fuel value not readable")
 
     def get_zombie_max(self) -> int:
@@ -141,7 +144,6 @@ class Zombies:
         t_h, t_w, _ = zombie_section.shape
         zombie_level_img = zombie_section[0:t_h,
                            int(0.30 * t_w):t_w - int(0.30 * t_w)]
-        cv2.imwrite('zombie5.png', zombie_level_img)
         black_min = (2, 2, 2)
         black_max = (65, 65, 65)
         image_processed = cv2.inRange(zombie_level_img, black_min, black_max)
@@ -223,7 +225,6 @@ class Zombies:
                         int(0.35 * t_w): t_w - int(0.35 * t_w)
                         ]
 
-        cv2.imwrite('zombie-level3.png', level_section)
         white_min = (180, 180, 180)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(level_section, white_min, white_max)
@@ -308,7 +309,7 @@ class Zombies:
 
     @retry(exception=ZombieException,
            message="No zombie arrow found",
-           attempts=2)
+           attempts=4)
     def find_zombie(self, level: int):
         """
         Find the a particular zombie of a given level.
@@ -323,39 +324,56 @@ class Zombies:
         self.launcher.mouse.move(*center)
         time.sleep(0.5)
         self.launcher.mouse.click()
-        time.sleep(4)
-        # select the zombie
-        zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(50, TOP_IMAGE)
-        zombie_area_image, zombie_area_cords_relative = \
-            self.launcher.get_screen_section(45, BOTTOM_IMAGE,
-                                             zombie_area_image,
-                                             zombie_area_cords_relative)
+        time.sleep(2)
+        # take 3 different snapshots of the zombie and run through them all
+        snapshot_data = []
+        zombie_area_image = None
+        for i in range(3):
+            zombie_area_image, area_cords_relative = \
+                self.launcher.get_screen_section(50, TOP_IMAGE)
+            zombie_area_image, area_cords_relative = \
+                self.launcher.get_screen_section(45, BOTTOM_IMAGE,
+                                                 zombie_area_image,
+                                                 area_cords_relative)
+            zombie_data = (zombie_area_image, area_cords_relative)
+            snapshot_data.append(zombie_data)
+            time.sleep(1)
 
         zeros = np.zeros_like(zombie_area_image)
         t_h, t_w, _ = zombie_area_image.shape
-        target_area = zombie_area_image[:,
-                      int(0.3 * t_w):int(0.7 * t_w)
-                      ]
-        zeros[:, int(0.3 * t_w):int(0.7 * t_w)] = target_area
-        self.launcher.log_message(
-            '-------- Finding the zombie arrow --------')
-        cords = self.launcher.find_target(
-            zeros,
-            self.launcher.target_templates('zombie-arrow'),
-            threshold=0.1
-        )
-        if not cords:
+        # now iterate through and find the best match
+        for zombie_image, area_cords in snapshot_data:
+            target_area = zombie_image[:,
+                          int(0.3 * t_w):int(0.7 * t_w)
+                          ]
+            zeros[:, int(0.3 * t_w):int(0.7 * t_w)] = target_area
+            self.launcher.log_message(
+                '-------- Finding the zombie arrow --------')
+            cords = self.launcher.find_target(
+                zeros,
+                self.launcher.target_templates('zombie-arrow'),
+                threshold=0.1
+            )
+            if cords:
+                zombie_area_cords_relative = area_cords
+                break
+        else:
+            cv2.imwrite('zombie-arrow-error.png', zeros)
             raise ZombieException("No zombie arrow found")
+
         arrow = zeros[
                 cords.start_y:cords.end_y,
                 cords.start_x:cords.end_x
                 ]
+        cv2.imwrite('zombie-arrow-image1.png', zeros)
+        cv2.imwrite('zombie-arrow-image2.png', arrow)
+
+        #display_image(arrow)
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
-        self.launcher.mouse.set_position(cords_relative.start_x + 10,
-                                         cords_relative.end_y + 80)
+        self.launcher.mouse.set_position(cords_relative.start_x + 15,
+                                         cords_relative.end_y + 150)
         time.sleep(0.2)
         self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
