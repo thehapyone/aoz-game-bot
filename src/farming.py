@@ -1,12 +1,12 @@
 """Responsible for different farming activities"""
 
+
 class Farm:
     """
     The farming class.
 
     In order to be able to send troops to go farm,
     the below are thing things that needs to be sorted out:
-
 
      - Get max fleet size
      - Get current no of fleets used and available.
@@ -42,7 +42,3 @@ class Farm:
           - move mouse to the extreme left
           - find the garage target
         '''
-
-
-
-
