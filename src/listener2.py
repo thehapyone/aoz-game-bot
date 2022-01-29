@@ -1,8 +1,8 @@
 """The mouse listener code. Outputs the mouse screen interaction"""
 import time
 
-from multipledispatch import dispatch
 import pyautogui
+from multipledispatch import dispatch
 
 
 class KeyboardController:
@@ -63,23 +63,23 @@ class MouseController:
         """
         Drags the mouse to a given position.
         """
-        self._mouse.drag(x, y, button=button)
+        self._mouse.drag(x, y, button=button, duration=0.5)
 
 
 if __name__ == '__main__':
     mouse = MouseController()
     time.sleep(5)
     print('setting mouse position')
-
-    mouse.set_position(1343, 370)
+    print(mouse.position)
+    mouse.set_position(3381, 977)
     time.sleep(1)
-    mouse.click(1)
+    #mouse.click(1)
     time.sleep(5)
 
     print('scrolling up')
     time.sleep(1)
     # mouse.scroll(0, -
-    mouse.drag(0, -150)
+    mouse.drag(250, 0)
     time.sleep(1)
 
     # mouse.scroll(0, 50)
