@@ -151,7 +151,7 @@ class GameLauncher:
             # wait for the game to load
             time.sleep(1)
             # now we click on the reward that popups on the game screen.
-            #self.get_rewards()
+            # self.get_rewards()
             # self game is alive now.
             self.log_message("Game now active")
             # shake to collect available resources

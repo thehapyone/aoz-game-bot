@@ -17,3 +17,9 @@ class RadarException(Exception):
     """
     Exception class for the Radar class
     """
+
+
+class FarmingException(Exception):
+    """
+    Exception class for the farming class
+    """
