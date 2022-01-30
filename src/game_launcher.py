@@ -61,6 +61,10 @@ class GameLauncher:
         "zombie-decrease": str(cwd.joinpath("data", "game", "zombie_decrease")),
         "zombie-increase": str(cwd.joinpath("data", "game",
                                             "zombie_increase")),
+        "garage": str(cwd.joinpath("data", "game",
+                                   "garage")),
+        "garage-fleet": str(cwd.joinpath("data", "game",
+                                         "garage_fleet")),
 
     }
     IMG_COLOR = cv.IMREAD_COLOR
