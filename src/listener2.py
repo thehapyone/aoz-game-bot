@@ -18,6 +18,7 @@ class KeyboardController:
         Note: The cursor should be on the app before this else, shake will
         not occur
         """
+
         pyautogui.hotkey('ctrl', '3')
 
 
@@ -76,11 +77,13 @@ if __name__ == '__main__':
     #mouse.click(1)
     time.sleep(5)
 
+
     print('scrolling up')
     time.sleep(1)
     # mouse.scroll(0, -
-    mouse.drag(250, 0)
+    mouse.drag(0, 50)
     time.sleep(1)
+    KeyboardController.shake()
 
     # mouse.scroll(0, 50)
 
