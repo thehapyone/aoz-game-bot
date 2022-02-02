@@ -1,4 +1,5 @@
 """Responsible for killing zombies in the Game event"""
+import threading
 import time
 from typing import Optional
 
@@ -58,6 +59,7 @@ class Zombies:
         self._attack_btn_cords: Optional[Coordinates] = None
         self._set_out_btn_cords: Optional[Coordinates] = None
         self.radar = Radar(self.launcher)
+        self.fleets_data = {}
 
     @property
     def fuel(self):
@@ -92,7 +94,7 @@ class Zombies:
         """
         green_min = (0, 140, 10)
         green_max = (7, 255, 75)
-        white_min = (110, 110, 110)
+        white_min = (128, 128, 128)
         white_max = (255, 255, 255)
 
         green_channel = cv2.inRange(image, green_min, green_max)
@@ -121,11 +123,13 @@ class Zombies:
                      new_x:end_x,
                      ]
         processed_image = self.process_fuel_image(fuel_image)
-        custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
-                        r'--oem 3 --psm 6 '
-
-        # extract the fuel value
-        fuel_value = get_text_from_image(processed_image, custom_config)
+        for ocr_settings in [6, 8]:
+            custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
+                            fr'--oem 3 --psm {ocr_settings} '
+            # extract the fuel value
+            fuel_value = get_text_from_image(processed_image, custom_config)
+            if fuel_value:
+                break
         self.launcher.log_message(f"Current fuel - {fuel_value}")
         if fuel_value:
             return int(float(fuel_value.strip()))
@@ -368,7 +372,6 @@ class Zombies:
         cv2.imwrite('zombie-arrow-image1.png', zeros)
         cv2.imwrite('zombie-arrow-image2.png', arrow)
 
-        #display_image(arrow)
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
@@ -465,26 +468,6 @@ class Zombies:
                 get_relative_coordinates(
                 cords_relative, cords)
             self._set_out_btn_cords = cords_relative
-        '''
-        btn_image = bottom_section[cords.start_y:cords.end_y,
-                    cords.start_x:cords.end_x]
-        white_min = (180, 180, 180)
-        white_max = (255, 255, 255)
-        image_processed = cv2.inRange(btn_image, white_min, white_max)
-        rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 5))
-        tophat = cv2.morphologyEx(cv2.cvtColor(btn_image,
-                                               cv2.COLOR_BGR2GRAY),
-                                  cv2.MORPH_TOPHAT,
-                                  rectKernel)
-        custom_config = r'-c tessedit_char_blacklist=/\|= ' \
-                        r'--oem 3 --psm 6'
-        text = get_text_from_image(
-            image_processed, custom_config).strip().lower()
-        text2 = get_text_from_image(
-            tophat).strip().lower()
-        if 'set' not in f"{text} {text2}":
-            raise ZombieException("No set-out text found -- ")
-        '''
         time_section = self.launcher.get_screenshot()[
                        self._set_out_btn_cords.start_y - 35:
                        self._set_out_btn_cords.start_y,
@@ -493,10 +476,63 @@ class Zombies:
         set_time = self.radar.get_set_out_time(time_section)
         return self._set_out_btn_cords, set_time
 
-    def kill_zombies(self, level: int, min_mobility: int = 10):
+    def _kill_zombie(self, level: int):
+        """
+        Function responsible for killing zombie
+        :param level:
+        :return: The waiting time before calling again
+        """
+        # set to the radar view
+        self.radar.select_radar_menu(ZOMBIE_MENU)
+        self.find_zombie(level)
+        set_time = self.attack_zombie()
+        waiting_time = (set_time * 2) + self._attack_duration
+        return waiting_time
+
+    def _chech_mobility_limit(self, target: int,
+                              current_fuel: int = None) -> bool:
+        """
+        Checks the fuel mobility is above the target
+        :param target: The minimum allowed fuel value
+        :return: True if there is still enough fuel
+        """
+        current_fuel = current_fuel if current_fuel else self.fuel
+        if current_fuel < 10:
+            # get the latest fuel value just in case
+            current_fuel = self.fuel
+        return current_fuel >= target
+
+    def _initialize_fleet_data(self, size: int):
+        """
+        Initialize the fleet data structure
+        :param size:
+        :return:
+        """
+        for fleet_id in range(size):
+            self.fleets_data[fleet_id] = None
+
+    def _fleet_wait(self, fleet_id: int):
+        """
+        The Fleet thread used for waiting for the fleet to finish.
+        :param fleet_id:
+        :return:
+        """
+        # get the waiting time for the fleet
+        waiting_time = self.fleets_data.get(fleet_id)
+        if not waiting_time:
+            return None
+        # sleep for the waiting duration
+        time.sleep(waiting_time)
+        # reset the fleet data
+        self.fleets_data[fleet_id] = None
+
+    def kill_zombies(self, level: int,
+                     min_mobility: int = 10,
+                     fleet: int = 1):
         """
         Function responsible for killing zombies in the map
 
+        :param fleet: The number of fleet to deploy. Defaults is 1
         :param level: The zombie level to target
         :param min_mobility: The min mobility to stop killing zombie
         :return:
@@ -504,13 +540,39 @@ class Zombies:
         self.zombie_city()
         min_mobility = min_mobility if min_mobility > 10 else 10
         self.launcher.log_message(
-            f"------ Killing zombies at level {level} --------")
-        while self.fuel >= min_mobility:
-            # set to the radar view
-            self.radar.select_radar_menu(ZOMBIE_MENU)
-            self.find_zombie(level)
-            set_time = self.attack_zombie()
-            waiting_time = (set_time * 2) + self._attack_duration
-            time.sleep(waiting_time)
+            f"------ Killing zombies at level {level} using {fleet} "
+            "Fleets--------")
+        self._initialize_fleet_data(fleet)
+        global_stop = False
+        min_time = 5
+        fleet_threads = {}
+        current_fuel = self.fuel
+        while not global_stop:
+            for fleet_id, fleet_time in self.fleets_data.items():
+                if fleet_time:
+                    continue
+                if self._chech_mobility_limit(min_mobility, current_fuel):
+                    waiting_time = self._kill_zombie(level)
+                    min_time = waiting_time if \
+                        waiting_time < min_time else min_time
+                    # reduce the current fuel by 10
+                    current_fuel = current_fuel - 10
+                    self.fleets_data[fleet_id] = waiting_time
+                    # activate the fleet_thread_waiting
+                    fleet_thread = threading.Thread(
+                        target=self._fleet_wait, args=(fleet_id,),
+                        name=f"FleetWaitThread_{fleet_id}")
+                    # save thread profile
+                    fleet_threads[fleet_id] = fleet_thread
+                    fleet_thread.start()
+                else:
+                    global_stop = True
+                    break
+            time.sleep(min_time)
+
+        # make sure all threads have closed
+        for fleet_thread in fleet_threads.values():
+            fleet_thread.join()
+
         self.launcher.log_message(
             '------ Fuel is below minimum level -------')
