@@ -28,6 +28,7 @@ class Radar:
             cls._instance._activated = False
             cls._instance._radar_coordinates = None
             cls._instance._go_button = None
+            cls._radar_options = None
         return cls._instance
 
     @property
@@ -102,27 +103,29 @@ class Radar:
         :returns: None
         """
         self.activate_radar()
-        radar_section, radar_area_cords_relative = \
-            self.launcher.get_screen_section(23, BOTTOM_IMAGE)
-        menu_section, _ = self.launcher.get_screen_section(45,
-                                                           TOP_IMAGE,
-                                                           radar_section)
-        t_h, t_w, _ = menu_section.shape
-        radar_options = {}
-        icon_width = int(0.1666 * t_w)
-        end_width = 0
-        for count in range(1, 7):
-            start_width = end_width
-            end_width = start_width + icon_width
-            if end_width > t_w:
-                end_width = t_w
-            cords_relative = GameHelper.get_relative_coordinates(
-                radar_area_cords_relative,
-                Coordinates(start_width, 0, end_width, t_h))
-            radar_options[count] = cords_relative
+        if not self._radar_options:
+            radar_section, radar_area_cords_relative = \
+                self.launcher.get_screen_section(23, BOTTOM_IMAGE)
+            menu_section, _ = self.launcher.get_screen_section(45,
+                                                               TOP_IMAGE,
+                                                               radar_section)
+            t_h, t_w, _ = menu_section.shape
+            # noinspection PyAttributeOutsideInit
+            self._radar_options = {}
+            icon_width = int(0.1666 * t_w)
+            end_width = 0
+            for count in range(1, 7):
+                start_width = end_width
+                end_width = start_width + icon_width
+                if end_width > t_w:
+                    end_width = t_w
+                cords_relative = GameHelper.get_relative_coordinates(
+                    radar_area_cords_relative,
+                    Coordinates(start_width, 0, end_width, t_h))
+                self._radar_options[count] = cords_relative
 
         # Now activate the selected menu
-        current_cords = radar_options[menu]
+        current_cords = self._radar_options[menu]
         center = GameHelper.get_center(current_cords)
         self.launcher.mouse.set_position(
             current_cords.start_x, current_cords.start_y)

@@ -312,7 +312,7 @@ class Zombies:
            attempts=4)
     def find_zombie(self, level: int):
         """
-        Find the a particular zombie of a given level.
+        Find a particular zombie of a given level.
 
         :param level: The target zombie level.
         :returns: None
