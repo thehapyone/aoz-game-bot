@@ -382,16 +382,28 @@ class Zombies:
         min_time = 5
         fleet_threads = {}
         current_fuel = self.fuel
+        # Track the number of times we couldn't find a zombie
+        no_zombie_count = 0
         while not global_stop:
             for fleet_id, fleet_time in self.fleets_data.items():
                 if fleet_time:
                     continue
                 if self._check_mobility_limit(min_mobility, current_fuel):
-                    waiting_time = self._kill_zombie(level)
+                    try:
+                        waiting_time = self._kill_zombie(level)
+                        # reduce the current fuel by 10
+                        current_fuel = current_fuel - 10
+                        no_zombie_count = 0
+                    except ZombieException as error:
+                        if str(error) == "No zombie arrow found":
+                            # wait for 60 secs and try again. Also use exponential backoff as well
+                            no_zombie_count = no_zombie_count + 1
+                            waiting_time = 60 * no_zombie_count
+                        else:
+                            raise error
                     min_time = waiting_time if \
                         waiting_time < min_time else min_time
-                    # reduce the current fuel by 10
-                    current_fuel = current_fuel - 10
+
                     self.fleets_data[fleet_id] = waiting_time
                     # activate the fleet_thread_waiting
                     fleet_thread = threading.Thread(
