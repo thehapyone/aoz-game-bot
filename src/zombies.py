@@ -1,16 +1,16 @@
 """Responsible for killing zombies in the Game event"""
+import threading
 import time
 from typing import Optional
 
 import cv2
 import numpy as np
 
-from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, LEFT_IMAGE, RIGHT_IMAGE, \
-    TOP_IMAGE, ZOMBIE_MENU
+from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, ZOMBIE_MENU
 from src.exceptions import ZombieException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates, retry
-from src.ocr import get_text_from_image, ocr_from_contour
+from src.ocr import get_text_from_image
 from src.radar import Radar
 
 
@@ -53,11 +53,10 @@ class Zombies:
         self._fuel = None
         self.launcher = launcher
         self._max_level = None
-        self._decrease_btn_cords: Optional[Coordinates] = None
-        self._increase_btn_cords: Optional[Coordinates] = None
         self._attack_btn_cords: Optional[Coordinates] = None
         self._set_out_btn_cords: Optional[Coordinates] = None
         self.radar = Radar(self.launcher)
+        self.fleets_data = {}
 
     @property
     def fuel(self):
@@ -92,7 +91,7 @@ class Zombies:
         """
         green_min = (0, 140, 10)
         green_max = (7, 255, 75)
-        white_min = (110, 110, 110)
+        white_min = (128, 128, 128)
         white_max = (255, 255, 255)
 
         green_channel = cv2.inRange(image, green_min, green_max)
@@ -121,11 +120,13 @@ class Zombies:
                      new_x:end_x,
                      ]
         processed_image = self.process_fuel_image(fuel_image)
-        custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
-                        r'--oem 3 --psm 6 '
-
-        # extract the fuel value
-        fuel_value = get_text_from_image(processed_image, custom_config)
+        for ocr_settings in [6, 8]:
+            custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
+                            fr'--oem 3 --psm {ocr_settings} '
+            # extract the fuel value
+            fuel_value = get_text_from_image(processed_image, custom_config)
+            if fuel_value:
+                break
         self.launcher.log_message(f"Current fuel - {fuel_value}")
         if fuel_value:
             return int(float(fuel_value.strip()))
@@ -157,47 +158,15 @@ class Zombies:
             return int(digits)
         raise ZombieException("Zombie Max level can not be extracted")
 
-    def get_zombie_increment_position(self):
-        """
-        Fetches the zombie level increment button position
-        :return:
-        """
-        button_section, cords_relative = self.launcher. \
-            get_screen_section(10, BOTTOM_IMAGE)
-        # get the decrease button
-        decrease_section, decrease_relative = self.launcher. \
-            get_screen_section(30, LEFT_IMAGE,
-                               button_section, cords_relative)
-        decrease_cords = self.launcher.find_target(
-            decrease_section,
-            self.launcher.target_templates('zombie-decrease'))
-        if not decrease_cords:
-            raise ZombieException("Zombie decrease button not found")
-        self._decrease_btn_cords = GameHelper.get_relative_coordinates(
-            decrease_relative,
-            decrease_cords)
-        # get the increase button
-        increase_section, increase_relative = self.launcher. \
-            get_screen_section(40, RIGHT_IMAGE,
-                               button_section, cords_relative)
-        increase_cords = self.launcher.find_target(
-            increase_section,
-            self.launcher.target_templates('zombie-increase'))
-        if not increase_cords:
-            raise ZombieException("Zombie increase button not found")
-        self._increase_btn_cords = GameHelper.get_relative_coordinates(
-            increase_relative,
-            increase_cords)
-        increase_center = GameHelper.get_center(self._increase_btn_cords)
-        self.launcher.mouse.set_position(self._increase_btn_cords.start_x,
-                                         self._increase_btn_cords.start_y)
-        self.launcher.mouse.move(*increase_center)
-
     def initialize_zombie(self):
         """Initialize zombie buttons"""
         # Set to the zombie radar screen
         self.radar.select_radar_menu(6)
-        self.get_zombie_increment_position()
+        self.launcher.log_message(
+            "--------- Fetching the coordinates of the "
+            f"increase and decrease buttons - {self.radar.increase_btn_cords} "
+            "---------")
+
         self._max_level = self.get_zombie_max()
         # clear radar screen
         self.launcher.mouse.set_position(
@@ -210,39 +179,6 @@ class Zombies:
         self.launcher.mouse.click()
         time.sleep(0.5)
 
-    def get_zombie_current_level(self):
-        """
-        Fetches the current zombie level.
-        :return:
-        """
-        bottom_section, _ = self.launcher. \
-            get_screen_section(13, BOTTOM_IMAGE)
-
-        t_h, t_w, _ = bottom_section.shape
-
-        level_section = bottom_section[
-                        0:t_h - int(0.52 * t_h),
-                        int(0.35 * t_w): t_w - int(0.35 * t_w)
-                        ]
-
-        white_min = (180, 180, 180)
-        white_max = (255, 255, 255)
-        image_processed = cv2.inRange(level_section, white_min, white_max)
-        custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
-                        r'--oem 3 --psm 6'
-        custom_config2 = r'-c tessedit_char_whitelist=0123456789 ' \
-                         r'--oem 3 --psm 10'
-        zombie_level_val = get_text_from_image(image_processed,
-                                               custom_config)
-        zombie_level_val = zombie_level_val if zombie_level_val else \
-            ocr_from_contour(image_processed, custom_config2)
-        if zombie_level_val:
-            self.launcher.log_message(
-                f"Current zombie level - {zombie_level_val}")
-            return int(zombie_level_val.strip())
-
-        raise ZombieException("Zombie current level can not be extracted")
-
     def zombie_go(self):
         """
         Activates the zombie go button to find the next available zombie.
@@ -251,53 +187,6 @@ class Zombies:
         self.launcher.mouse.set_position(self.radar.go_button)
         center = GameHelper.get_center(self.radar.go_button)
         self.launcher.mouse.move(*center)
-
-    def _adjust_level(self, level_type: str, increase_count: int):
-        """
-        Adjust the current zombie level to match the expected level
-        :return:
-        """
-        self.launcher.log_message(f'Adjusting zombie level - {level_type}, '
-                                  f'{increase_count}')
-        if level_type == 'INCREASE':
-            self.launcher.mouse.set_position(
-                self._increase_btn_cords.start_x,
-                self._increase_btn_cords.start_y)
-            center = GameHelper.get_center(self._increase_btn_cords)
-            self.launcher.mouse.move(*center)
-        elif level_type == 'DECREASE':
-            self.launcher.mouse.set_position(
-                self._decrease_btn_cords.start_x,
-                self._decrease_btn_cords.start_y)
-            center = GameHelper.get_center(self._decrease_btn_cords)
-            self.launcher.mouse.move(*center)
-        else:
-            raise ZombieException('Level type not supported')
-        time.sleep(1)
-        for _ in range(increase_count):
-            self.launcher.mouse.click()
-            time.sleep(0.5)
-
-    def set_zombie_level(self, level: int):
-        """
-        Set the zombie level. If level is greater than max level.
-        Set to max level - 1
-
-        :param level: The expected level.
-        :returns: None
-        """
-        new_level = self.max_level if level > self.max_level else level
-        # enforces new level is a positive real number
-        new_level = new_level if new_level > 0 else 1
-        current_level = self.get_zombie_current_level()
-        increase_count = abs(new_level - current_level)
-        self.launcher.log_message(f'Adjusting zombie level - {new_level}')
-        if new_level > current_level:
-            level_type = 'INCREASE'
-            self._adjust_level(level_type, increase_count)
-        elif new_level < current_level:
-            level_type = 'DECREASE'
-            self._adjust_level(level_type, increase_count)
 
     def zombie_city(self):
         """
@@ -317,7 +206,7 @@ class Zombies:
         :param level: The target zombie level.
         :returns: None
         """
-        self.set_zombie_level(level)
+        self.radar.set_level(level, self.max_level)
         button = self.radar.go_button
         self.launcher.mouse.set_position(button.start_x, button.start_y)
         center = GameHelper.get_center(button)
@@ -337,8 +226,7 @@ class Zombies:
                                                  area_cords_relative)
             zombie_data = (zombie_area_image, area_cords_relative)
             snapshot_data.append(zombie_data)
-            time.sleep(1)
-
+            time.sleep(0.5)
         zeros = np.zeros_like(zombie_area_image)
         t_h, t_w, _ = zombie_area_image.shape
         # now iterate through and find the best match
@@ -365,16 +253,14 @@ class Zombies:
                 cords.start_y:cords.end_y,
                 cords.start_x:cords.end_x
                 ]
-        cv2.imwrite('zombie-arrow-image1.png', zeros)
-        cv2.imwrite('zombie-arrow-image2.png', arrow)
+        # cv2.imwrite('zombie-arrow-image1.png', zeros)
+        # cv2.imwrite('zombie-arrow-image2.png', arrow)
 
-        #display_image(arrow)
         cords_relative = GameHelper. \
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
         self.launcher.mouse.set_position(cords_relative.start_x + 15,
                                          cords_relative.end_y + 150)
-        time.sleep(0.2)
         self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
         time.sleep(0.8)
@@ -421,82 +307,67 @@ class Zombies:
         self.launcher.mouse.click()
         # send out fleet to the zombies
         time.sleep(3)
-        time_out = self.send_fleet()
+        time_out = self.radar.send_fleet()
         self.launcher.log_message(f'----- time to target ----- {time_out}')
         return time_out
 
-    def send_fleet(self) -> int:
+    def _kill_zombie(self, level: int):
         """
-        Sends out a troop fleet out to the target and also returns their set
-        out time.
-
-        :return: The troop set out time.
+        Function responsible for killing zombie
+        :param level:
+        :return: The waiting time before calling again
         """
-        position, time_out = self.find_set_out()
-        self.launcher.mouse.set_position(position.start_x,
-                                         position.start_y)
-        time.sleep(0.8)
-        self.launcher.mouse.move(GameHelper.get_center(position))
-        self.launcher.mouse.click()
-        return time_out
+        # set to the radar view
+        self.radar.select_radar_menu(ZOMBIE_MENU)
+        self.find_zombie(level)
+        set_time = self.attack_zombie()
+        waiting_time = (set_time * 2) + self._attack_duration
+        return waiting_time
 
-    @retry(exception=ZombieException,
-           message="No set-out button found",
-           attempts=2)
-    def find_set_out(self) -> tuple[Coordinates, int]:
+    def _check_mobility_limit(self, target: int,
+                              current_fuel: int = None) -> bool:
         """
-        Finds out the set out button and also extract the time of trip.
-
-        :return: The set out button coordinates and the set out time.
+        Checks the fuel mobility is above the target
+        :param target: The minimum allowed fuel value
+        :return: True if there is still enough fuel
         """
-        if not self._set_out_btn_cords:
-            bottom_section, cords_relative = self.launcher. \
-                get_screen_section(13, BOTTOM_IMAGE)
+        current_fuel = current_fuel if current_fuel else self.fuel
+        if current_fuel < 10:
+            # get the latest fuel value just in case
+            current_fuel = self.fuel
+        return current_fuel >= target
 
-            bottom_section, cords_relative = self.launcher. \
-                get_screen_section(45, RIGHT_IMAGE,
-                                   bottom_section, cords_relative)
-            cords = self.launcher.find_target(
-                bottom_section,
-                self.launcher.target_templates('setout'))
-            if not cords:
-                raise ZombieException("No set-out button found")
-            cords_relative = GameHelper. \
-                get_relative_coordinates(
-                cords_relative, cords)
-            self._set_out_btn_cords = cords_relative
-        '''
-        btn_image = bottom_section[cords.start_y:cords.end_y,
-                    cords.start_x:cords.end_x]
-        white_min = (180, 180, 180)
-        white_max = (255, 255, 255)
-        image_processed = cv2.inRange(btn_image, white_min, white_max)
-        rectKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 5))
-        tophat = cv2.morphologyEx(cv2.cvtColor(btn_image,
-                                               cv2.COLOR_BGR2GRAY),
-                                  cv2.MORPH_TOPHAT,
-                                  rectKernel)
-        custom_config = r'-c tessedit_char_blacklist=/\|= ' \
-                        r'--oem 3 --psm 6'
-        text = get_text_from_image(
-            image_processed, custom_config).strip().lower()
-        text2 = get_text_from_image(
-            tophat).strip().lower()
-        if 'set' not in f"{text} {text2}":
-            raise ZombieException("No set-out text found -- ")
-        '''
-        time_section = self.launcher.get_screenshot()[
-                       self._set_out_btn_cords.start_y - 35:
-                       self._set_out_btn_cords.start_y,
-                       self._set_out_btn_cords.start_x:
-                       self._set_out_btn_cords.end_x - 20]
-        set_time = self.radar.get_set_out_time(time_section)
-        return self._set_out_btn_cords, set_time
+    def _initialize_fleet_data(self, size: int):
+        """
+        Initialize the fleet data structure
+        :param size:
+        :return:
+        """
+        for fleet_id in range(size):
+            self.fleets_data[fleet_id] = None
 
-    def kill_zombies(self, level: int, min_mobility: int = 10):
+    def _fleet_wait(self, fleet_id: int):
+        """
+        The Fleet thread used for waiting for the fleet to finish.
+        :param fleet_id:
+        :return:
+        """
+        # get the waiting time for the fleet
+        waiting_time = self.fleets_data.get(fleet_id)
+        if not waiting_time:
+            return None
+        # sleep for the waiting duration
+        time.sleep(waiting_time)
+        # reset the fleet data
+        self.fleets_data[fleet_id] = None
+
+    def kill_zombies(self, level: int,
+                     min_mobility: int = 10,
+                     fleet: int = 1):
         """
         Function responsible for killing zombies in the map
 
+        :param fleet: The number of fleet to deploy. Defaults is 1
         :param level: The zombie level to target
         :param min_mobility: The min mobility to stop killing zombie
         :return:
@@ -504,13 +375,40 @@ class Zombies:
         self.zombie_city()
         min_mobility = min_mobility if min_mobility > 10 else 10
         self.launcher.log_message(
-            f"------ Killing zombies at level {level} --------")
-        while self.fuel >= min_mobility:
-            # set to the radar view
-            self.radar.select_radar_menu(ZOMBIE_MENU)
-            self.find_zombie(level)
-            set_time = self.attack_zombie()
-            waiting_time = (set_time * 2) + self._attack_duration
-            time.sleep(waiting_time)
+            f"------ Killing zombies at level {level} using {fleet} "
+            "Fleets--------")
+        self._initialize_fleet_data(fleet)
+        global_stop = False
+        min_time = 5
+        fleet_threads = {}
+        current_fuel = self.fuel
+        while not global_stop:
+            for fleet_id, fleet_time in self.fleets_data.items():
+                if fleet_time:
+                    continue
+                if self._check_mobility_limit(min_mobility, current_fuel):
+                    waiting_time = self._kill_zombie(level)
+                    min_time = waiting_time if \
+                        waiting_time < min_time else min_time
+                    # reduce the current fuel by 10
+                    current_fuel = current_fuel - 10
+                    self.fleets_data[fleet_id] = waiting_time
+                    # activate the fleet_thread_waiting
+                    fleet_thread = threading.Thread(
+                        target=self._fleet_wait, args=(fleet_id,),
+                        name=f"FleetWaitThread_{fleet_id}",
+                        daemon=True)
+                    # save thread profile
+                    fleet_threads[fleet_id] = fleet_thread
+                    fleet_thread.start()
+                else:
+                    global_stop = True
+                    break
+            time.sleep(min_time)
+
+        # make sure all threads have closed
+        for fleet_thread in fleet_threads.values():
+            fleet_thread.join()
+
         self.launcher.log_message(
             '------ Fuel is below minimum level -------')

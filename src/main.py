@@ -1,8 +1,8 @@
 import time
 
-from src.farming import Farm
 from src.game_launcher import GameLauncher
 from src.listener import MouseController, KeyboardController
+from src.zombies import Zombies
 
 if __name__ == '__main__':
     mouse = MouseController()
@@ -11,15 +11,16 @@ if __name__ == '__main__':
     launcher = GameLauncher(mouse, keyboard)
     launcher.start_game()
 
-    '''
+    #radar = Radar(launcher)
+    #print(radar.get_current_level())
+
     # zombie
     time.sleep(5)
     zombie = Zombies(launcher)
     zombie.initialize_zombie()
     print('------------------------.-----------------')
-    zombie.kill_zombies(20)
-    #zombie.find_zombie(15)
-    #zombie.find_set_out()
+    zombie.kill_zombies(30, fleet=2)
+
     '''
     # farming
     time.sleep(5)
@@ -27,3 +28,4 @@ if __name__ == '__main__':
     print('-------------------------------------------')
     print(farm.max_fleet)
     print(farm.current_fleet)
+    '''

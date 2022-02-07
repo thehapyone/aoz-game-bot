@@ -69,7 +69,7 @@ try:
     red_channel = img.copy()[:,:,2]
     image22 = Zombies.process_fuel_image(img)
     custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
-                        r'--oem 3 --psm 6 '
+                        r'--oem 3 --psm 8 '
 
     display_image(image22)
     print(ocr.image_to_data(image22, config=custom_config))
