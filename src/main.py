@@ -19,7 +19,7 @@ if __name__ == '__main__':
     zombie = Zombies(launcher)
     zombie.initialize_zombie()
     print('------------------------.-----------------')
-    zombie.kill_zombies(24, fleet=2)
+    zombie.kill_zombies(30, fleet=2)
 
     '''
     # farming
