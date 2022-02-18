@@ -396,9 +396,10 @@ class Zombies:
                         no_zombie_count = 0
                     except ZombieException as error:
                         if str(error) == "No zombie arrow found":
-                            # wait for 60 secs and try again. Also use exponential backoff as well
+                            # wait for 10 secs and try again. Also use
+                            # exponential backoff as well
                             no_zombie_count = no_zombie_count + 1
-                            waiting_time = 60 * no_zombie_count
+                            waiting_time = 10 * no_zombie_count
                         else:
                             raise error
                     min_time = waiting_time if \
