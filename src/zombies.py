@@ -1,7 +1,7 @@
 """Responsible for killing zombies in the Game event"""
 import threading
 import time
-from typing import Optional
+from typing import Optional, List
 
 import cv2
 import numpy as np
@@ -260,7 +260,7 @@ class Zombies:
             get_relative_coordinates(
             zombie_area_cords_relative, cords)
         self.launcher.mouse.set_position(cords_relative.start_x + 15,
-                                         cords_relative.end_y + 150)
+                                         cords_relative.end_y + 120)
         self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
         time.sleep(0.8)
@@ -270,11 +270,12 @@ class Zombies:
     @retry(exception=ZombieException,
            message="No zombie attack button found",
            attempts=2)
-    def attack_zombie(self) -> int:
+    def attack_zombie(self, fleet_id: int) -> tuple[bool, int]:
         """
         Attack the current zombie shown on the display screen. It finds
         the zombie attack button and clicks on it.
 
+        :param fleet_id: The fleet to use for deployment
         :return: The set out time.
         """
         self.launcher.log_message(
@@ -307,20 +308,30 @@ class Zombies:
         self.launcher.mouse.click()
         # send out fleet to the zombies
         time.sleep(3)
-        time_out = self.radar.send_fleet()
-        self.launcher.log_message(f'----- time to target ----- {time_out}')
-        return time_out
+        fleet_conflict, time_out = self.radar.send_fleet(fleet_id)
+        if fleet_conflict:
+            self.launcher.log_message('Current target is already taken by '
+                                      'someone else.')
+        else:
+            self.launcher.log_message(f'----- time to target ----- {time_out}')
+        return fleet_conflict, time_out
 
-    def _kill_zombie(self, level: int):
+    @retry(exception=ZombieException,
+           message="Fleet conflict detected. Relaunch again",
+           attempts=10)
+    def _kill_zombie(self, level: int, fleet_id: int):
         """
         Function responsible for killing zombie
-        :param level:
+        :param level: The zombie level to kill
+        :param fleet_id: The fleet to use for deployment
         :return: The waiting time before calling again
         """
         # set to the radar view
         self.radar.select_radar_menu(ZOMBIE_MENU)
         self.find_zombie(level)
-        set_time = self.attack_zombie()
+        fleet_conflict, set_time = self.attack_zombie(fleet_id)
+        if fleet_conflict:
+            raise ZombieException("Fleet conflict detected. Relaunch again")
         waiting_time = (set_time * 2) + self._attack_duration
         return waiting_time
 
@@ -332,24 +343,24 @@ class Zombies:
         :return: True if there is still enough fuel
         """
         current_fuel = current_fuel if current_fuel else self.fuel
-        if current_fuel < 10:
+        if current_fuel < 20:
             # get the latest fuel value just in case
             current_fuel = self.fuel
         return current_fuel >= target
 
-    def _initialize_fleet_data(self, size: int):
+    def _initialize_fleet_data(self, fleets: list):
         """
         Initialize the fleet data structure
         :param size:
         :return:
         """
-        for fleet_id in range(size):
+        for fleet_id in fleets:
             self.fleets_data[fleet_id] = None
 
     def _fleet_wait(self, fleet_id: int):
         """
         The Fleet thread used for waiting for the fleet to finish.
-        :param fleet_id:
+        :param fleet_id: The fleet id to wait for to finish
         :return:
         """
         # get the waiting time for the fleet
@@ -363,24 +374,30 @@ class Zombies:
 
     def kill_zombies(self, level: int,
                      min_mobility: int = 10,
-                     fleet: int = 1):
+                     fleets: List[int] = None):
         """
         Function responsible for killing zombies in the map
 
-        :param fleet: The number of fleet to deploy. Defaults is 1
+        :param fleets: The fleets to use for deployment. If non, use default
+            fleet 1
         :param level: The zombie level to target
         :param min_mobility: The min mobility to stop killing zombie
         :return:
         """
         self.zombie_city()
         min_mobility = min_mobility if min_mobility > 10 else 10
+        if not fleets:
+            fleets = [1]
+        fleet_count = len(fleets)
         self.launcher.log_message(
-            f"------ Killing zombies at level {level} using {fleet} "
+            f"------ Killing zombies at level {level} using {fleet_count} "
             "Fleets--------")
-        self._initialize_fleet_data(fleet)
+        self._initialize_fleet_data(fleets)
+
         global_stop = False
         min_time = 5
         fleet_threads = {}
+
         current_fuel = self.fuel
         # Track the number of times we couldn't find a zombie
         no_zombie_count = 0
@@ -390,7 +407,7 @@ class Zombies:
                     continue
                 if self._check_mobility_limit(min_mobility, current_fuel):
                     try:
-                        waiting_time = self._kill_zombie(level)
+                        waiting_time = self._kill_zombie(level, fleet_id)
                         # reduce the current fuel by 10
                         current_fuel = current_fuel - 10
                         no_zombie_count = 0

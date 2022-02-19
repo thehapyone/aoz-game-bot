@@ -1,6 +1,8 @@
 """Responsible for managing the radar"""
 import time
 from datetime import timedelta
+from functools import cached_property
+from typing import Union
 
 import cv2
 import numpy as np
@@ -354,12 +356,17 @@ class Radar:
     @retry(exception=RadarException,
            message="No set-out button found",
            attempts=2)
-    def find_set_out(self) -> tuple[Coordinates, int]:
+    def find_set_out(self, fleet_id: int = None) -> tuple[Coordinates, int]:
         """
         Finds out the set out button and also extract the time of trip.
 
+        :param fleet_id: The fleet to use for deployment
         :return: The set out button coordinates and the set out time.
         """
+        # select the fleet if provided
+        if fleet_id:
+            self.select_fleet(fleet_id)
+
         if not self._set_out_btn_cords:
             bottom_section, cords_relative = self.launcher. \
                 get_screen_section(13, BOTTOM_IMAGE)
@@ -384,17 +391,157 @@ class Radar:
         set_time = self.get_set_out_time(time_section)
         return self._set_out_btn_cords, set_time
 
-    def send_fleet(self) -> int:
+    def send_fleet(self, fleet_id: int) -> Union[tuple[bool, None], tuple[bool,
+                                                                     int]]:
         """
         Sends out a troop fleet out to the target and also returns their set
         out time.
 
-        :return: The troop set out time.
+        :param fleet_id: The fleet to use for deployment
+        :return: The troop set out time and an optional target conflict
+            possibility.
         """
-        position, time_out = self.find_set_out()
+        try:
+            position, time_out = self.find_set_out(fleet_id)
+        except RadarException as error:
+            # check if another fleet is going to target
+            # if conflict - cancel my fleet action.
+            fleet_conflict = self.check_fleet_conflict(0)
+            if fleet_conflict:
+                return True, None
+            raise error
         if time_out:
             self.launcher.mouse.set_position(position.start_x,
                                              position.start_y)
             self.launcher.mouse.move(GameHelper.get_center(position))
             self.launcher.mouse.click()
-        return time_out
+        return False, time_out
+
+    def check_fleet_conflict(self, decision: int):
+        """
+        Checks for conflict when fleet is attempting to
+        attack a zombie or fleet going to gather at a mine.
+
+        :param decision: 0 means cancel and 1 means confirm and continue
+        :return: Boolean telling whether conflict was detected.
+        """
+
+        conflict_area_image, area_cords_relative = \
+            self.launcher.get_screen_section(65, BOTTOM_IMAGE)
+        conflict_area_image, area_cords_relative = \
+            self.launcher.get_screen_section(50, TOP_IMAGE,
+                                             conflict_area_image,
+                                             area_cords_relative)
+
+        cords = self.launcher.find_target(
+            conflict_area_image,
+            self.launcher.target_templates('fleet-conflict'),
+            threshold=0.1
+        )
+        if not cords:
+            return False
+
+        cords_relative = GameHelper. \
+            get_relative_coordinates(area_cords_relative, cords)
+
+        height = cords.end_y - cords.start_y
+        width = cords.end_x - cords.start_x
+
+        if decision:
+            # means go for the confirm button
+            target_roi = Coordinates(
+                start_y=cords_relative.start_y + int(0.55 *
+                                                     height),
+                end_y=cords_relative.end_y,
+                start_x=cords_relative.end_x - int(0.5 * width),
+                end_x=cords_relative.end_x
+            )
+        else:
+            # go for the cancel button
+            target_roi = Coordinates(
+                start_y=cords_relative.start_y + int(0.55 * height),
+                end_y=cords_relative.end_y,
+                start_x=cords_relative.start_x,
+                end_x=int(0.5 * width) + cords_relative.start_x
+            )
+
+        self.launcher.mouse.set_position(target_roi.start_x,
+                                         target_roi.start_y)
+        center = GameHelper.get_center(target_roi)
+        self.launcher.mouse.move(center)
+        time.sleep(0.5)
+        self.launcher.mouse.click()
+        time.sleep(1)
+        return True
+
+    @cached_property
+    def fleets_menu(self) -> dict[int, Coordinates]:
+        """
+        Gets all the 7 fleets position coordinates.
+
+        :return: An enum of the game fleets coordinates
+        """
+
+        area_image, area_cords_relative = \
+            self.launcher.get_screen_section(30, TOP_IMAGE)
+
+        cords = self.launcher.find_target(
+            area_image,
+            self.launcher.target_templates('fleets'),
+            threshold=0.1
+        )
+        if not cords:
+            raise RadarException("Fleets area not found")
+
+        cords_relative = GameHelper. \
+            get_relative_coordinates(area_cords_relative, cords)
+
+        fleets = area_image[
+            cords.start_y:cords.end_y,
+                 cords.start_x:cords.end_x
+        ]
+        # extract and categorizes fleets.
+        t_h, t_w, _ = fleets.shape
+        fleet_dict = {}
+
+        # each fleet takes about 14.3% in size
+        icon_width = int(0.143 * t_w)
+        start_width = 0
+        for count in range(1, 8):
+            end_width = start_width + icon_width
+            if end_width > t_w:
+                end_width = t_w
+            fleet_cords = Coordinates(
+                start_y=cords_relative.start_y,
+                end_y=cords_relative.end_y,
+                start_x=cords_relative.start_x + start_width,
+                end_x=cords_relative.start_x + end_width
+            )
+            fleet_dict[count] = fleet_cords
+            # updates the start width to end_width
+            start_width = end_width
+        return fleet_dict
+
+
+    def select_fleet(self, fleet_id: int):
+        """
+        Selects the fleet to use for attack or gather.
+
+        :param fleet_id: A valid fleet id between 1 and 7
+        :return:
+        """
+        all_fleet_menus = self.fleets_menu
+        try:
+            fleet_cords = all_fleet_menus[fleet_id]
+        except KeyError:
+            raise RadarException(f'Fleet configuration {fleet_id} not '
+                                 f'configured or available')
+
+        self.launcher.mouse.set_position(fleet_cords.start_x,
+                                         fleet_cords.start_y)
+        center = GameHelper.get_center(fleet_cords)
+        self.launcher.mouse.move(center)
+        time.sleep(0.5)
+        self.launcher.mouse.click()
+
+

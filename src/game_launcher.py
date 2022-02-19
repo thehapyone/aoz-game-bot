@@ -1,5 +1,6 @@
 import subprocess
 import time
+from functools import cached_property
 from pathlib import Path
 from typing import Optional, List
 
@@ -11,7 +12,7 @@ from mss import mss
 from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE, INSIDE_VIEW, \
     OUTSIDE_VIEW
 from src.exceptions import LauncherException
-from src.helper import Coordinates, GameHelper
+from src.helper import Coordinates, GameHelper, retry
 from src.listener import MouseController, KeyboardController
 
 
@@ -58,20 +59,24 @@ class GameLauncher:
                                          "zombie_arrow")),
         "zombie-attack": str(cwd.joinpath("data", "game",
                                           "zombie_attack")),
-        "zombie-decrease": str(cwd.joinpath("data", "game", "zombie_decrease")),
+        "zombie-decrease": str(cwd.joinpath("data", "game",
+                                            "zombie_decrease")),
         "zombie-increase": str(cwd.joinpath("data", "game",
                                             "zombie_increase")),
         "garage": str(cwd.joinpath("data", "game",
                                    "garage")),
         "garage-fleet": str(cwd.joinpath("data", "game",
                                          "garage_fleet")),
-
+        "fleet-conflict": str(cwd.joinpath("data", "game",
+                                           "fleet_conflict")),
+        "fleets": str(cwd.joinpath("data", "game",
+                                           "fleets")),
     }
     IMG_COLOR = cv.IMREAD_COLOR
 
     def __init__(self, mouse: MouseController,
                  keyboard: KeyboardController,
-                 enable_debug=True):
+                 enable_debug=True, test_mode: bool = False):
         self._app_templates = None
         self.app_pid = None
         self._mss = mss()
@@ -81,29 +86,26 @@ class GameLauncher:
         self._aoz_launched = None
         self._mouse = mouse
         self._keyboard = keyboard
+        self._test_mode = test_mode
 
     @property
     def mouse(self):
         """Returns the mouse object"""
         return self._mouse
 
-    def start_game(self):
+    def start_game(self, test_app_coordinates=None):
         """
         Starts and prep the AoZ game app
         :return:
         """
+        if self._test_mode and test_app_coordinates:
+            self._app_coordinates = test_app_coordinates
+            return
         self.log_message(
             "############## Launching Bluestack App now ##############")
         self.launch_app()
         self.log_message("############## Finding the app screen ##############")
-        try:
-            self.find_app()
-        except Exception as error:
-            if "Bluestack screen not detected" in str(error):
-                # attempts again
-                self.find_app()
-            else:
-                raise error
+        self.find_app()
         self.log_message("############# Finding the game app ##############")
         self.find_game()
         self.log_message("############# Launching game now ##############")
@@ -244,7 +246,8 @@ class GameLauncher:
                         section_coordinates.start_x:section_coordinates.end_x]
         return section_image, section_coordinates_relative
 
-    def get_bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
+    @cached_property
+    def bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
                                        Coordinates]:
         """
         Gets the game button menu.
@@ -279,7 +282,7 @@ class GameLauncher:
         Possible values are - 1 for inside city and 2 for outside city.
         :return: None
         """
-        bottom_image, _, coordinates = self.get_bottom_menu()
+        bottom_image, _, coordinates = self.bottom_menu
         cords = self.find_target(
             bottom_image,
             self.target_templates('city-icon'),
@@ -338,8 +341,12 @@ class GameLauncher:
         # extract the coordinates in reference to the main screen
         self._game_coordinates = GameHelper.get_relative_coordinates(
             self._app_coordinates, location)
+        print(self._game_coordinates)
         time.sleep(1)
 
+    @retry(exception=LauncherException,
+           message="Bluestack screen not detected. Bot can't proceed",
+           attempts=2)
     def find_app(self):
         """
         Helper function for finding the coordinates of the bluestack android
@@ -354,6 +361,7 @@ class GameLauncher:
             raise LauncherException(
                 "Bluestack screen not detected. Bot can't proceed")
         self._app_coordinates = location
+        self.log_message(f"App Coordinates - {self._app_coordinates}")
 
     def find_target(self, reference: np.ndarray,
                     target: List[np.ndarray],
