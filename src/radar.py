@@ -2,7 +2,6 @@
 import time
 from datetime import timedelta
 from functools import cached_property
-from typing import Union
 
 import cv2
 import numpy as np
@@ -198,7 +197,7 @@ class Radar:
         custom_config = r'-c tessedit_char_whitelist=:0123456789 ' \
                         r'--oem 3 --psm 6 '
         result = get_text_from_image(white_channel, custom_config).strip()
-        if not result or ':' not in result:
+        if (not result or ':' not in result) and result != "0":
             rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
             top_hat = cv2.morphologyEx(cv2.cvtColor(image_with_zeros,
                                                     cv2.COLOR_BGR2GRAY),
@@ -208,7 +207,12 @@ class Radar:
             print(f'----- result ----- raw top hat = {result}')
 
             if not result:
+                cv2.imwrite('time-error.png', image)
                 raise RadarException("Can not extract set out time")
+
+        if result == "0":
+            return int(result)
+
         # parse to date time
         timestamp = result.split(":")
         timestamp = [int(value) for value in timestamp]
@@ -391,31 +395,22 @@ class Radar:
         set_time = self.get_set_out_time(time_section)
         return self._set_out_btn_cords, set_time
 
-    def send_fleet(self, fleet_id: int) -> Union[tuple[bool, None], tuple[bool,
-                                                                     int]]:
+    def send_fleet(self,
+                   fleet_id: int = None) -> int:
         """
         Sends out a troop fleet out to the target and also returns their set
         out time.
 
-        :param fleet_id: The fleet to use for deployment
-        :return: The troop set out time and an optional target conflict
-            possibility.
+        :param fleet_id: The fleet to use for deployment. Optional
+        :return: The troop set out time.
         """
-        try:
-            position, time_out = self.find_set_out(fleet_id)
-        except RadarException as error:
-            # check if another fleet is going to target
-            # if conflict - cancel my fleet action.
-            fleet_conflict = self.check_fleet_conflict(0)
-            if fleet_conflict:
-                return True, None
-            raise error
+        position, time_out = self.find_set_out(fleet_id)
         if time_out:
             self.launcher.mouse.set_position(position.start_x,
                                              position.start_y)
             self.launcher.mouse.move(GameHelper.get_center(position))
             self.launcher.mouse.click()
-        return False, time_out
+        return time_out
 
     def check_fleet_conflict(self, decision: int):
         """
@@ -497,9 +492,9 @@ class Radar:
             get_relative_coordinates(area_cords_relative, cords)
 
         fleets = area_image[
-            cords.start_y:cords.end_y,
+                 cords.start_y:cords.end_y,
                  cords.start_x:cords.end_x
-        ]
+                 ]
         # extract and categorizes fleets.
         t_h, t_w, _ = fleets.shape
         fleet_dict = {}
@@ -522,7 +517,6 @@ class Radar:
             start_width = end_width
         return fleet_dict
 
-
     def select_fleet(self, fleet_id: int):
         """
         Selects the fleet to use for attack or gather.
@@ -543,5 +537,3 @@ class Radar:
         self.launcher.mouse.move(center)
         time.sleep(0.5)
         self.launcher.mouse.click()
-
-

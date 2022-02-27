@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, ZOMBIE_MENU
-from src.exceptions import ZombieException
+from src.exceptions import ZombieException, RadarException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates, retry
 from src.ocr import get_text_from_image
@@ -243,7 +243,6 @@ class Zombies:
                 threshold=0.1
             )
             if cords:
-                zombie_area_cords_relative = area_cords
                 break
         else:
             cv2.imwrite('zombie-arrow-error.png', zeros)
@@ -257,10 +256,9 @@ class Zombies:
         # cv2.imwrite('zombie-arrow-image2.png', arrow)
 
         cords_relative = GameHelper. \
-            get_relative_coordinates(
-            zombie_area_cords_relative, cords)
+            get_relative_coordinates(area_cords, cords)
         self.launcher.mouse.set_position(cords_relative.start_x + 15,
-                                         cords_relative.end_y + 120)
+                                         cords_relative.end_y + 140)
         self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
         time.sleep(0.8)
@@ -270,7 +268,7 @@ class Zombies:
     @retry(exception=ZombieException,
            message="No zombie attack button found",
            attempts=2)
-    def attack_zombie(self, fleet_id: int) -> tuple[bool, int]:
+    def attack_zombie(self, fleet_id: int) -> tuple[bool, Optional[int]]:
         """
         Attack the current zombie shown on the display screen. It finds
         the zombie attack button and clicks on it.
@@ -306,14 +304,18 @@ class Zombies:
         self.launcher.mouse.move(center)
         time.sleep(0.5)
         self.launcher.mouse.click()
-        # send out fleet to the zombies
-        time.sleep(3)
-        fleet_conflict, time_out = self.radar.send_fleet(fleet_id)
+        time.sleep(1)
+        # check out for potential conflict here
+        # if conflict - cancel my fleet action.
+        fleet_conflict = self.radar.check_fleet_conflict(0)
         if fleet_conflict:
             self.launcher.log_message('Current target is already taken by '
                                       'someone else.')
-        else:
-            self.launcher.log_message(f'----- time to target ----- {time_out}')
+            return fleet_conflict, None
+
+        # send out fleet to the zombies
+        time_out = self.radar.send_fleet(fleet_id)
+        self.launcher.log_message(f'----- time to target ----- {time_out}')
         return fleet_conflict, time_out
 
     @retry(exception=ZombieException,
@@ -411,8 +413,9 @@ class Zombies:
                         # reduce the current fuel by 10
                         current_fuel = current_fuel - 10
                         no_zombie_count = 0
-                    except ZombieException as error:
-                        if str(error) == "No zombie arrow found":
+                    except (RadarException, ZombieException) as error:
+                        if str(error) in ["Can not extract set out time",
+                                          "No zombie arrow found"]:
                             # wait for 10 secs and try again. Also use
                             # exponential backoff as well
                             no_zombie_count = no_zombie_count + 1

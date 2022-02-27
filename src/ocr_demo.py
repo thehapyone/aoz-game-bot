@@ -5,14 +5,12 @@ import cv2 as cv
 import numpy as np
 import pytesseract as ocr
 
-from src.zombies import Zombies
-
 ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 cwd = Path(__file__).cwd()
 
-main_image = str(cwd.joinpath("fuel-error2.png"))
+main_image = str(cwd.joinpath("time-error.png"))
 
 img_original = cv.imread(main_image, cv.IMREAD_COLOR)
 
@@ -64,16 +62,6 @@ try:
     target_area = img[:,
                   int(0.22 * t_w):int(0.75 * t_w)
                   ]
-    green_channel = img.copy()[:,:,1]
-    blue_channel = img.copy()[:,:,0]
-    red_channel = img.copy()[:,:,2]
-    image22 = Zombies.process_fuel_image(img)
-    custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
-                        r'--oem 3 --psm 8 '
-
-    display_image(image22)
-    print(ocr.image_to_data(image22, config=custom_config))
-    exit(2)
 
     zeros = np.zeros_like(img)
     zeros[:, int(0.22 * t_w):int(0.75 * t_w)] = target_area
@@ -141,17 +129,17 @@ try:
 
 
     print('--------------- white channel --------------------')
-    print(ocr.image_to_string(image22,  config=custom_config))
-    print(ocr.image_to_string(image22,  config=custom_config2))
+    print(ocr.image_to_string(white_channel,  config=custom_config))
+    print(ocr.image_to_string(white_channel,  config=custom_config2))
 
     print('---------------  --------------------')
 
-    print(ocr.image_to_string(image22,  config=custom_config2))
-    print(ocr.image_to_string(image22,  config=custom_config3))
-    print(ocr.image_to_string(image22,  config=custom_config4))
-    print(ocr.image_to_string(image22,  config=custom_config5))
-    print(ocr.image_to_string(image22))
-    print(ocr.image_to_string(image22))
+    print(ocr.image_to_string(white_channel,  config=custom_config2))
+    print(ocr.image_to_string(white_channel,  config=custom_config3))
+    print(ocr.image_to_string(white_channel,  config=custom_config4))
+    print(ocr.image_to_string(white_channel,  config=custom_config5))
+    print(ocr.image_to_string(white_channel))
+    print(ocr.image_to_string(white_channel))
 
     custom_config5 = r'-c tessedit_char_whitelist=0123456789 --oem 3 --psm 10'
 

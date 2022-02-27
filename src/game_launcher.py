@@ -1,6 +1,5 @@
 import subprocess
 import time
-from functools import cached_property
 from pathlib import Path
 from typing import Optional, List
 
@@ -70,7 +69,9 @@ class GameLauncher:
         "fleet-conflict": str(cwd.joinpath("data", "game",
                                            "fleet_conflict")),
         "fleets": str(cwd.joinpath("data", "game",
-                                           "fleets")),
+                                   "fleets")),
+        "farming": str(cwd.joinpath("data", "game",
+                                    "farming")),
     }
     IMG_COLOR = cv.IMREAD_COLOR
 
@@ -92,6 +93,11 @@ class GameLauncher:
     def mouse(self):
         """Returns the mouse object"""
         return self._mouse
+
+    @property
+    def keyboard(self):
+        """Returns the keyboard object"""
+        return self._keyboard
 
     def start_game(self, test_app_coordinates=None):
         """
@@ -246,9 +252,8 @@ class GameLauncher:
                         section_coordinates.start_x:section_coordinates.end_x]
         return section_image, section_coordinates_relative
 
-    @cached_property
     def bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
-                                       Coordinates]:
+                                   Coordinates]:
         """
         Gets the game button menu.
 
@@ -282,7 +287,7 @@ class GameLauncher:
         Possible values are - 1 for inside city and 2 for outside city.
         :return: None
         """
-        bottom_image, _, coordinates = self.bottom_menu
+        bottom_image, _, coordinates = self.bottom_menu()
         cords = self.find_target(
             bottom_image,
             self.target_templates('city-icon'),
