@@ -1,5 +1,6 @@
 import subprocess
 import time
+from functools import cached_property
 from pathlib import Path
 from typing import Optional, List
 
@@ -72,6 +73,10 @@ class GameLauncher:
                                    "fleets")),
         "farming": str(cwd.joinpath("data", "game",
                                     "farming")),
+        "switch-account": str(cwd.joinpath("data", "game",
+                                           "switch_account")),
+        "switch-account-login": str(cwd.joinpath("data", "game",
+                                                 "switch_account_login")),
     }
     IMG_COLOR = cv.IMREAD_COLOR
 
@@ -252,7 +257,7 @@ class GameLauncher:
                         section_coordinates.start_x:section_coordinates.end_x]
         return section_image, section_coordinates_relative
 
-    def bottom_menu(self) -> tuple[np.ndarray, dict[int, np.ndarray],
+    def bottom_menu(self) -> tuple[np.ndarray, dict[int, Coordinates],
                                    Coordinates]:
         """
         Gets the game button menu.
@@ -265,9 +270,12 @@ class GameLauncher:
         # first menu is about 20% and the others share 16%
         t_h, t_w, _ = bottom_menu.shape
         city_icon_end_width = int(0.20 * t_w)
-        city_icon = bottom_menu[0:t_h, 0:city_icon_end_width]
-
-        menu_dict = {0: city_icon}
+        city_cords = Coordinates(start_x=0, end_x=city_icon_end_width,
+                                 start_y=0, end_y=t_h)
+        city_cords_relative = GameHelper.get_relative_coordinates(
+            bottom_coordinates_relative, city_cords
+        )
+        menu_dict = {0: city_cords_relative}
 
         icon_width = int(0.16 * t_w)
         end_width = city_icon_end_width
@@ -276,8 +284,12 @@ class GameLauncher:
             end_width = start_width + icon_width
             if end_width > t_w:
                 end_width = t_w
-            menu_icon = bottom_menu[0:t_h, start_width:end_width]
-            menu_dict[count] = menu_icon
+            menu_icon_cords = Coordinates(start_x=start_width, end_x=end_width,
+                                          start_y=0, end_y=t_h)
+            menu_icon_cords_relative = GameHelper.get_relative_coordinates(
+                bottom_coordinates_relative, menu_icon_cords
+            )
+            menu_dict[count] = menu_icon_cords_relative
         return bottom_menu, menu_dict, bottom_coordinates_relative
 
     def set_view(self, view: int):
@@ -475,3 +487,28 @@ class GameLauncher:
     @property
     def app_coordinates(self):
         return self._app_coordinates
+
+    @cached_property
+    def get_account_menu(self):
+        """
+        Returns the account menu coordinates.
+        :return:
+        """
+        account_section, account_cords_relative = \
+            self.get_screen_section(10, BOTTOM_IMAGE)
+
+        t_h, t_w, _ = account_section.shape
+
+        account_options = {}
+        icon_width = int(0.25 * t_w)
+        end_width = 0
+        for count in range(4):
+            start_width = end_width
+            end_width = start_width + icon_width
+            if end_width > t_w:
+                end_width = t_w
+            cords_relative = GameHelper.get_relative_coordinates(
+                account_cords_relative,
+                Coordinates(start_width, 0, end_width, t_h))
+            account_options[count] = cords_relative
+        return account_options

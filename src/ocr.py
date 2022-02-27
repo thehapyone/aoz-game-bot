@@ -44,4 +44,5 @@ def get_text_from_image(image: np.ndarray, config: str = '') -> str:
     :param image: The input image
     :return: Text in image
     """
+    print(ocr.image_to_data(image))
     return ocr.image_to_string(image, config=config).strip()

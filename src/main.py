@@ -1,9 +1,7 @@
-import time
-
 from src.game_launcher import GameLauncher
 from src.helper import Coordinates
 from src.listener import MouseController, KeyboardController
-from src.zombies import Zombies
+from src.profile import GameProfile
 
 if __name__ == '__main__':
     testing_app_coordinates = Coordinates(start_x=2557, start_y=315,
@@ -18,7 +16,9 @@ if __name__ == '__main__':
     # print(radar.get_fleets_menu())
     # print(radar.find_set_out())
 
-
+    profile = GameProfile(launcher)
+    profile.snapshot_profile()
+    '''
     # zombie
     time.sleep(5)
     zombie = Zombies(launcher)
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     print('------------------------.-----------------')
     zombie.kill_zombies(29, fleets=[2,3,4])
     '''
-
+    '''
     # farming
     time.sleep(5)
     farm = Farm(

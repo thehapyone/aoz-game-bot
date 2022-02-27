@@ -23,3 +23,8 @@ class FarmingException(Exception):
     """
     Exception class for the farming class
     """
+
+class ProfileException(Exception):
+    """
+    Exception class for Profile relating activities
+    """
