@@ -205,6 +205,8 @@ class Farm:
         self.launcher.mouse.move(*center)
         time.sleep(0.5)
         self.launcher.mouse.click()
+        time.sleep(1)
+        self.launcher.mouse.click()
         time.sleep(2)
         # take 3 different snapshots of the zombie and run through them all
         snapshot_data = []
@@ -237,7 +239,7 @@ class Farm:
             if cords:
                 break
         else:
-            cv2.imwrite('farming-gather-error.png', zeros)
+            cv2.imwrite('../farming-gather-error.png', zeros)
             raise FarmingException("No farm gather button found")
 
         cords_relative = GameHelper. \

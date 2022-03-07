@@ -8,14 +8,18 @@ from numpy import dot
 from numpy.linalg import norm
 from skimage.feature import hog
 
+from src.listener import MouseController
+
 
 def singleton(cls):
     """Make a class a Singleton class (only one instance)"""
+
     @wraps(cls)
     def wrapper_singleton(*args, **kwargs):
         if not wrapper_singleton.instance:
             wrapper_singleton.instance = cls(*args, **kwargs)
         return wrapper_singleton.instance
+
     wrapper_singleton.instance = None
     return wrapper_singleton
 
@@ -56,11 +60,12 @@ def retry(
                 error_exception = error
                 if message in str(error):
                     print(f"------ Error in {_func.__name__}: Attempting "
-                          f"again with attempts {attempt+1}/{attempts}. Error "
+                          f"again with attempts {attempt + 1}/{attempts}. Error "
                           f"is {str(error)} -------")
                     continue
                 raise error
         raise error_exception
+
     return wrapper
 
 
@@ -153,3 +158,18 @@ class GameHelper:
             reference_location[3] - ((reference_location[3] -
                                       reference_location[1])
                                      - current_location[3]))
+
+
+def click_on_target(
+        cords: Coordinates,
+        cords_reference: Coordinates,
+        mouse: MouseController, center: bool = False):
+    """Clicks on a target"""
+    cords_relative = GameHelper.get_relative_coordinates(
+        cords_reference, cords)
+    mouse.set_position(cords_relative.start_x,
+                       cords_relative.start_y)
+    if center:
+        center = GameHelper.get_center(cords_relative)
+        mouse.move(center)
+    mouse.click()

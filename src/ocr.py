@@ -1,8 +1,12 @@
+from typing import List, Optional
+
 import cv2
 import imutils
 import numpy as np
 import pytesseract as ocr
 from imutils import contours
+
+from src.helper import Coordinates
 
 ocr.pytesseract.tesseract_cmd = \
     r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -44,5 +48,42 @@ def get_text_from_image(image: np.ndarray, config: str = '') -> str:
     :param image: The input image
     :return: Text in image
     """
-    print(ocr.image_to_data(image))
     return ocr.image_to_string(image, config=config).strip()
+
+
+def get_box_from_image(
+        match: str, image: np.ndarray,
+        config: str = '') -> Optional[Coordinates]:
+    """
+    Perform OCR on a given image and returns the detected
+    text bounding box
+
+    :param match: The target string to match
+    :param config: A custom config
+    :param image: The input image
+    :return: Text in image
+    """
+    result = ocr.image_to_data(image,
+                               output_type=ocr.Output.DICT,
+                               config=config)
+    print(ocr.image_to_string(image, config=config).strip())
+    matched_texts: List[str] = result.get("text")
+    if not matched_texts:
+        return None
+    for index, text in enumerate(matched_texts):
+        if not text:
+            continue
+        if text.lower().strip() == match.lower() \
+                and float(result['conf'][index]) >= 30:
+            break
+    else:
+        return None
+    # returns the bounding box
+    bounding_box = Coordinates(
+        start_x=result['left'][index],
+        end_x=result['left'][index] + result['width'][index],
+        start_y=result['top'][index],
+        end_y=result['top'][index] + result['height'][index]
+    )
+
+    return bounding_box

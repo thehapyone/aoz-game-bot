@@ -131,8 +131,8 @@ class Zombies:
         if fuel_value:
             return int(float(fuel_value.strip()))
         # Fuel value not readable error.
-        cv2.imwrite('fuel-error2.png', fuel_image)
-        cv2.imwrite('fuel-error-processed.png', processed_image)
+        cv2.imwrite('../fuel-error2.png', fuel_image)
+        cv2.imwrite('../fuel-error-processed.png', processed_image)
         raise ZombieException("Fuel value not readable")
 
     def get_zombie_max(self) -> int:
@@ -245,7 +245,7 @@ class Zombies:
             if cords:
                 break
         else:
-            cv2.imwrite('zombie-arrow-error.png', zeros)
+            cv2.imwrite('../zombie-arrow-error.png', zeros)
             raise ZombieException("No zombie arrow found")
 
         arrow = zeros[
@@ -414,7 +414,8 @@ class Zombies:
                         current_fuel = current_fuel - 10
                         no_zombie_count = 0
                     except (RadarException, ZombieException) as error:
-                        if str(error) in ["Can not extract set out time",
+                        if str(error) in ["Fleets area not found",
+                                          "Can not extract set out time",
                                           "No zombie arrow found"]:
                             # wait for 10 secs and try again. Also use
                             # exponential backoff as well
