@@ -257,8 +257,11 @@ class Zombies:
 
         cords_relative = GameHelper. \
             get_relative_coordinates(area_cords, cords)
+
+        # Adjustment for different zombie sizes
+        y_increase = 100 if level < 26 else 140
         self.launcher.mouse.set_position(cords_relative.start_x + 15,
-                                         cords_relative.end_y + 140)
+                                         cords_relative.end_y + y_increase)
         self.launcher.mouse.move(1, 1)
         self.launcher.mouse.click()
         time.sleep(0.8)
@@ -414,7 +417,8 @@ class Zombies:
                         current_fuel = current_fuel - 10
                         no_zombie_count = 0
                     except (RadarException, ZombieException) as error:
-                        if str(error) in ["Fleets area not found",
+                        if str(error) in ["No zombie attack button found",
+                                          "Fleets area not found",
                                           "Can not extract set out time",
                                           "No zombie arrow found"]:
                             # wait for 10 secs and try again. Also use

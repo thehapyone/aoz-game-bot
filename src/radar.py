@@ -9,7 +9,7 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, RIGHT_IMAGE, \
     LEFT_IMAGE
 from src.exceptions import RadarException
-from src.game_launcher import GameLauncher, display_image
+from src.game_launcher import GameLauncher
 from src.helper import Coordinates, GameHelper, retry
 from src.ocr import get_text_from_image, ocr_from_contour
 
@@ -427,7 +427,6 @@ class Radar:
             self.launcher.get_screen_section(50, TOP_IMAGE,
                                              conflict_area_image,
                                              area_cords_relative)
-        display_image(conflict_area_image)
         cords = self.launcher.find_target(
             conflict_area_image,
             self.launcher.target_templates('fleet-conflict'),

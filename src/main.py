@@ -4,7 +4,7 @@ from src.farm.farming import Farm
 from src.game_launcher import GameLauncher
 from src.helper import Coordinates
 from src.listener import MouseController, KeyboardController
-from src.profile import GameProfile, Profile
+from src.profile import GameProfile
 from src.radar import Radar
 from src.zombies.zombies import Zombies
 
@@ -15,7 +15,7 @@ def run_zombies():
     zombie = Zombies(launcher)
     zombie.initialize_zombie()
     print('------------------------.-----------------')
-    zombie.kill_zombies(30, fleets=[1, 2, 3, 4, 5])
+    zombie.kill_zombies(29, fleets=[2, 3, 4])
 
 
 def run_farming():
@@ -48,7 +48,8 @@ if __name__ == '__main__':
     # profile.get_all_profiles()
     # target = "futuregamerayo08@gmail.com"
     # profile.go_to_profile(target)
-    profile_view = Profile(email="futuregamerayo08@gmail.com",
-                           user_name="ShadowFarm8_1")
+    #profile_view = Profile(email="futuregamerayo08@gmail.com",
+    #                       user_name="ShadowFarm8_1")
 
-    profile.load_profile(profile_view)
+    #profile.load_profile(profile_view)
+    run_zombies()
