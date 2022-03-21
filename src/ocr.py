@@ -66,15 +66,15 @@ def get_box_from_image(
     result = ocr.image_to_data(image,
                                output_type=ocr.Output.DICT,
                                config=config)
-    print(ocr.image_to_string(image, config=config).strip())
+    # print(ocr.image_to_string(image, config=config).strip())
     matched_texts: List[str] = result.get("text")
     if not matched_texts:
         return None
     for index, text in enumerate(matched_texts):
         if not text:
             continue
-        if text.lower().strip() == match.lower() \
-                and float(result['conf'][index]) >= 30:
+        if text.lower().strip() == match.lower().strip() \
+                and float(result['conf'][index]) >= 0:
             break
     else:
         return None

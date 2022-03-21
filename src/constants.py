@@ -1,4 +1,5 @@
 """Class for storing all the constants"""
+from pathlib import Path
 
 OUTSIDE_VIEW = 2
 INSIDE_VIEW = 1
@@ -16,3 +17,6 @@ FARM_OIL = 2
 FARM_STEEL = 3
 FARM_MINERAL = 4
 FARM_GOLD = 5
+
+# Config File path
+CONFIG_PATH = Path(__file__).parent.parent / "config.ini"

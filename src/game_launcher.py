@@ -12,8 +12,9 @@ from mss import mss
 from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE, INSIDE_VIEW, \
     OUTSIDE_VIEW
 from src.exceptions import LauncherException
-from src.helper import Coordinates, GameHelper, retry
+from src.helper import Coordinates, GameHelper, retry, click_on_target
 from src.listener import MouseController, KeyboardController
+from src.ocr import get_box_from_image
 
 
 def display_image(image, name: str = None):
@@ -136,24 +137,60 @@ class GameLauncher:
             # wait for the app to be ready.
             time.sleep(20)
 
+    def reset_to_home(self):
+        """Use for resetting the game screen back to city home"""
+        attempts = 10
+        # click and set view to game screen
+        self.mouse.set_position(self._app_coordinates.start_x + 50,
+                                self._app_coordinates.start_y + 50)
+        self.mouse.click()
+        time.sleep(1)
+        while attempts:
+            # go back one view
+            self.keyboard.back()
+            time.sleep(2)
+            exit_area_image, area_cords_relative = \
+                self.get_screen_section(60, BOTTOM_IMAGE)
+            exit_area_image, area_cords_relative = \
+                self.get_screen_section(30, TOP_IMAGE,
+                                        exit_area_image,
+                                        area_cords_relative)
+            # search for target
+            custom_config = r'--oem 3 --psm 3'
+            white_min = (193, 193, 193)
+            white_max = (255, 255, 255)
+            white_channel = cv.inRange(exit_area_image, white_min,
+                                        white_max)
+            location = self.find_ocr_target("Exit", white_channel,
+                                            custom_config)
+            if location:
+                # now in exit view
+                self.keyboard.back()
+                self.log_message(
+                    "------- View now back to home ---------")
+                break
+            attempts = attempts - 1
+
     def get_rewards(self):
         """Get the rewards that shows on the home screen"""
-        game_screen = self.get_game_screen()
+        rewards_area_image, area_cords_relative = \
+            self.get_screen_section(35, BOTTOM_IMAGE)
+
         self.log_message("Finding the available rewards button.")
+
         rewards_location = self.find_target(
-            game_screen,
-            self.target_templates('rewards'))
+            rewards_area_image,
+            self.target_templates('rewards'),
+            threshold=0.2)
+
         if rewards_location:
-            reward_box = GameHelper.get_relative_coordinates(
-                self._app_coordinates, rewards_location)
-            # display_image(reward_image)
-            self._mouse.set_position(reward_box.start_x, reward_box.start_y)
-            reward_center = GameHelper.get_center(reward_box)
-            self._mouse.move(*reward_center)
-            self._mouse.click()
-            time.sleep(2)
+            click_on_target(rewards_location,
+                            area_cords_relative,
+                            self.mouse)
+            time.sleep(1)
             # click again to remove the notification of the rewards collected
             self._mouse.click()
+            time.sleep(5)
 
     def launch_aoz(self):
         """Launch the AOZ app if not already launched"""
@@ -166,9 +203,12 @@ class GameLauncher:
             self._mouse.move(center_x, center_y)
             self._mouse.click()
             # wait for the game to load
-            time.sleep(1)
+            time.sleep(45)
             # now we click on the reward that popups on the game screen.
-            # self.get_rewards()
+            self.get_rewards()
+            # Reset the game scree and reset any displayed offers
+            self.reset_to_home()
+
             # self game is alive now.
             self.log_message("Game now active")
             # shake to collect available resources
@@ -512,3 +552,15 @@ class GameLauncher:
                 Coordinates(start_width, 0, end_width, t_h))
             account_options[count] = cords_relative
         return account_options
+
+    def find_ocr_target(self,
+                        target: str,
+                        image, config: str = "") -> Optional[Coordinates]:
+        """
+        Finds the location of a target text
+        and returns the first match of the bounding box
+        """
+        location = get_box_from_image(target, image, config=config)
+        if not location:
+            return None
+        return location

@@ -5,7 +5,7 @@ from src.game_launcher import GameLauncher
 from src.helper import Coordinates
 from src.listener import MouseController, KeyboardController
 from src.profile import GameProfile
-from src.radar import Radar
+from src.profile_loader import load_profiles
 from src.zombies.zombies import Zombies
 
 
@@ -18,21 +18,13 @@ def run_zombies():
     zombie.kill_zombies(29, fleets=[2, 3, 4])
 
 
-def run_farming():
+def run_farming(farm_type, level):
     # farming
-    time.sleep(5)
     farm = Farm(
-        farm_type=3,
-        farm_level=5,
+        farm_type=farm_type,
+        farm_level=level,
         launcher=launcher)
-    print('-------------------------------------------')
-    print(farm.all_out_farming())
-
-
-def test_radar():
-    radar = Radar(launcher)
-    print(radar.get_fleets_menu())
-    print(radar.find_set_out())
+    farm.all_out_farming()
 
 
 if __name__ == '__main__':
@@ -40,16 +32,54 @@ if __name__ == '__main__':
                                           end_x=3498, end_y=1820)
     mouse = MouseController()
     keyboard = KeyboardController()
+
     # Run game launcher
     launcher = GameLauncher(mouse, keyboard, test_mode=True)
     launcher.start_game(testing_app_coordinates)
 
-    profile = GameProfile(launcher)
-    # profile.get_all_profiles()
-    # target = "futuregamerayo08@gmail.com"
-    # profile.go_to_profile(target)
-    #profile_view = Profile(email="futuregamerayo08@gmail.com",
-    #                       user_name="ShadowFarm8_1")
+    # Load the saved game profiles
+    game_profiles = load_profiles()
 
-    #profile.load_profile(profile_view)
-    run_zombies()
+    launcher.log_message(
+        f"######### Loaded a total of {len(game_profiles)} profiles "
+        "###########")
+
+    # the profile launcher
+    profile_launcher = GameProfile(launcher)
+
+    time.sleep(5)
+
+    profile_errors = {}
+    # run all game profiles
+    for profile in game_profiles:
+        launcher.log_message(
+            f"######### Now launching profile {profile.name} ###########")
+        try:
+            profile_launcher.load_profile(profile)
+
+            # now we click on the reward that popups on the game screen.
+            launcher.get_rewards()
+            # Reset the game screen
+            launcher.reset_to_home()
+            # shake to collect available resources
+            launcher.keyboard.shake()
+            time.sleep(3)
+            # Now do something with the loaded profile
+            run_farming(profile.farming_type, profile.farming_level)
+        except Exception as error:
+            launcher.log_message(
+                f"######### Error while processing profile {profile.name} "
+                "###########")
+            profile_errors[profile.name] = str(error)
+            launcher.reset_to_home()
+
+        launcher.log_message(
+            f"######### Leaving profile {profile.name} ###########")
+        time.sleep(2)
+
+    if profile_errors:
+        launcher.log_message("Bot session finished with errors. ERRORS: \n")
+        for name, error in profile_errors.items():
+            launcher.log_message(f'Profile {name} generated error {error} \n')
+    else:
+        launcher.log_message("Bot session finished")

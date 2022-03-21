@@ -6,7 +6,7 @@ import numpy as np
 
 from src.constants import INSIDE_VIEW, OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, \
     RIGHT_IMAGE
-from src.exceptions import FarmingException
+from src.exceptions import FarmingException, RadarException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates, retry
 from src.ocr import get_text_from_image
@@ -81,15 +81,15 @@ class Farm:
         # Move the mouse to the center
         self.launcher.mouse.set_position(self.launcher.app_coordinates.start_x,
                                          self.launcher.app_coordinates.start_y)
-        self.launcher.mouse.move(center)
+        self.launcher.mouse.move(center[0]-100, center[1]-100)
         center_position = self.launcher.mouse.position
         count = 4
         self.launcher.log_message(
             '------- Dragging mouse to garage view -------')
         # Drag the mouse left three times
         for i in range(count):
-            self.launcher.mouse.drag(150, 0)
-            time.sleep(0.3)
+            self.launcher.mouse.drag(200, 0)
+            time.sleep(0.5)
             self.launcher.mouse.set_position(center_position.x,
                                              center_position.y)
             time.sleep(0.3)
@@ -191,7 +191,7 @@ class Farm:
 
     @retry(exception=FarmingException,
            message="No farm gather button found",
-           attempts=3)
+           attempts=4)
     def find_farm(self):
         """
         Find a particular farm of a given level.
@@ -249,7 +249,7 @@ class Farm:
         center = GameHelper.get_center(cords_relative)
         self.launcher.mouse.move(center)
         self.launcher.mouse.click()
-        time.sleep(0.8)
+        time.sleep(1)
         self.launcher.mouse.click()
         time.sleep(1)
 
@@ -261,16 +261,20 @@ class Farm:
                                       'someone else.')
         return fleet_conflict
 
-    @retry(exception=FarmingException,
-           message="No zombie attack button found",
-           attempts=2)
     def deploy_troops(self) -> int:
         """
         Deploy the troops to go farm.
 
         :return: The set out time.
         """
-        time_out = self.radar.send_fleet()
+        try:
+            time_out = self.radar.send_fleet()
+        except RadarException as error:
+            if str(error) == "Can not extract set out time":
+                time_out = 0
+            else:
+                raise error
+
         if not time_out:
             # no available troops left to deploy. Signal end of farming mode.
             print("no more troops to deploy")
