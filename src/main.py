@@ -28,13 +28,14 @@ def run_farming(farm_type, level):
 
 
 if __name__ == '__main__':
-    testing_app_coordinates = Coordinates(start_x=2743, start_y=462,
-                                          end_x=3498, end_y=1820)
+    testing_app_coordinates = Coordinates(start_x=2615, start_y=400,
+                                          end_x=3490, end_y=1953)
     mouse = MouseController()
     keyboard = KeyboardController()
 
     # Run game launcher
-    launcher = GameLauncher(mouse, keyboard, test_mode=True)
+    launcher = GameLauncher(mouse, keyboard,
+                            test_mode=True, enable_debug=False)
     launcher.start_game(testing_app_coordinates)
 
     # Load the saved game profiles

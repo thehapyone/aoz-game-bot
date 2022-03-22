@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import cv2
 import imutils
@@ -52,7 +52,7 @@ def get_text_from_image(image: np.ndarray, config: str = '') -> str:
 
 
 def get_box_from_image(
-        match: str, image: np.ndarray,
+        match: Union[str, List[str]], image: np.ndarray,
         config: str = '') -> Optional[Coordinates]:
     """
     Perform OCR on a given image and returns the detected
@@ -73,9 +73,14 @@ def get_box_from_image(
     for index, text in enumerate(matched_texts):
         if not text:
             continue
-        if text.lower().strip() == match.lower().strip() \
-                and float(result['conf'][index]) >= 0:
-            break
+        if isinstance(match, list):
+            if text.lower().strip() in match \
+                    and float(result['conf'][index]) >= 0:
+                break
+        else:
+            if text.lower().strip() == match.lower().strip() \
+                    and float(result['conf'][index]) >= 0:
+                break
     else:
         return None
     # returns the bounding box

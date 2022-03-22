@@ -27,8 +27,8 @@ def load_profile_configs():
                                "'all_profiles' are required but not "
                                "available") from error
     # parse all profiles to list
-    all_profiles = list({profile.strip().lower() for profile in
-                         all_profiles.strip().split(',')})
+    all_profiles = sorted(list({profile.strip().lower() for profile in
+                                all_profiles.strip().split(',')}))
 
     # parse configs to a proper dictionary
     configs_dict = {section: {key: value

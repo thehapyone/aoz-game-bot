@@ -118,7 +118,7 @@ class GameProfile:
     @retry(exception=ProfileException,
            message="Profile not found",
            attempts=4)
-    def go_to_profile(self, target: str):
+    def go_to_profile(self, profile: PlayerProfile):
         """
         Takes a snapshot of the profile and performs OCR on it. Afterwards,
         go to the profile mini screen.
@@ -129,17 +129,20 @@ class GameProfile:
         profile_area_image, profile_cords_relative = \
             self.launcher.get_screen_section(85, TOP_IMAGE)
         # find the target and click on it.
-        location = self.launcher.find_ocr_target(target, profile_area_image)
+        targets = [profile.email.lower().strip(),
+                   profile.nickname.lower().strip()]
+        location = self.launcher.find_ocr_target(
+            targets, profile_area_image)
 
         if not location:
-            self.launcher.log_message(f"Profile target {target} not found")
+            self.launcher.log_message(f"Profile target {targets} not found")
             raise ProfileException("Profile not found")
 
         click_on_target(location,
                         profile_cords_relative,
                         self.launcher.mouse)
         time.sleep(2)
-        self._activate_continue_on_profile(target)
+        self._activate_continue_on_profile(targets[0])
 
     @retry(exception=ProfileException,
            message="Continue as button not found",
@@ -274,7 +277,7 @@ class GameProfile:
         """
         self.get_all_profiles()
         # go to the full profile screen and click target
-        self.go_to_profile(profile.email)
+        self.go_to_profile(profile)
         # now activate the profile
         self.activate_target_in_profile(profile.name)
         # now wait for some time for the profile to load fully

@@ -3,6 +3,7 @@ import subprocess
 from functools import partial, wraps
 from typing import NamedTuple, Tuple, Optional, Callable, Type
 
+import cv2 as cv
 import numpy as np
 from numpy import dot
 from numpy.linalg import norm
@@ -173,3 +174,23 @@ def click_on_target(
         center = GameHelper.get_center(cords_relative)
         mouse.move(center)
     mouse.click()
+
+
+def display_image(image, name: str = None):
+    # define the screen resolution
+    screen_res = 1280, 720
+    scale_width = screen_res[0] / image.shape[1]
+    scale_height = screen_res[1] / image.shape[0]
+    scale = min(scale_width, scale_height)
+    # resized window width and height
+    window_width = int(image.shape[1] * scale)
+    window_height = int(image.shape[0] * scale)
+    # cv2.WINDOW_NORMAL makes the output window resizealbe
+    win_name = "Display Frame" if not name else name
+
+    cv.namedWindow(win_name, cv.WINDOW_NORMAL)
+    # resize the window according to the screen resolution
+    cv.resizeWindow(win_name, window_width, window_height)
+
+    cv.imshow(win_name, image)
+    cv.waitKey(0)

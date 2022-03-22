@@ -204,7 +204,6 @@ class Radar:
                                        cv2.MORPH_TOPHAT,
                                        rect_kernel)
             result = get_text_from_image(top_hat, custom_config).strip()
-            print(f'----- result ----- raw top hat = {result}')
 
             if not result:
                 cv2.imwrite('time-error.png', image)
@@ -216,7 +215,6 @@ class Radar:
         # parse to date time
         timestamp = result.split(":")
         timestamp = [int(value) for value in timestamp]
-        print(f'----- timestamp ----- raw = {result}')
         if len(timestamp) == 3:
             delta = timedelta(
                 hours=timestamp[0],
@@ -339,7 +337,7 @@ class Radar:
                         int(0.35 * t_w): t_w - int(0.35 * t_w)
                         ]
 
-        white_min = (180, 180, 180)
+        white_min = (175, 175, 175)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(level_section, white_min, white_max)
         custom_config = r'-c tessedit_char_whitelist=0123456789 ' \

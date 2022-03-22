@@ -2,7 +2,7 @@ import subprocess
 import time
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import cv2 as cv
 import imutils
@@ -15,26 +15,6 @@ from src.exceptions import LauncherException
 from src.helper import Coordinates, GameHelper, retry, click_on_target
 from src.listener import MouseController, KeyboardController
 from src.ocr import get_box_from_image
-
-
-def display_image(image, name: str = None):
-    # define the screen resolution
-    screen_res = 1280, 720
-    scale_width = screen_res[0] / image.shape[1]
-    scale_height = screen_res[1] / image.shape[0]
-    scale = min(scale_width, scale_height)
-    # resized window width and height
-    window_width = int(image.shape[1] * scale)
-    window_height = int(image.shape[0] * scale)
-    # cv2.WINDOW_NORMAL makes the output window resizealbe
-    win_name = "Display Frame" if not name else name
-
-    cv.namedWindow(win_name, cv.WINDOW_NORMAL)
-    # resize the window according to the screen resolution
-    cv.resizeWindow(win_name, window_width, window_height)
-
-    cv.imshow(win_name, image)
-    cv.waitKey(0)
 
 
 class GameLauncher:
@@ -160,7 +140,7 @@ class GameLauncher:
             white_min = (193, 193, 193)
             white_max = (255, 255, 255)
             white_channel = cv.inRange(exit_area_image, white_min,
-                                        white_max)
+                                       white_max)
             location = self.find_ocr_target("Exit", white_channel,
                                             custom_config)
             if location:
@@ -348,8 +328,9 @@ class GameLauncher:
         if view == INSIDE_VIEW:
             # go to inside city view
             if cords:
-                self.log_message(
-                    "------ Now in city view mode ------")
+                if self._debug:
+                    self.log_message(
+                        "------ Now in city view mode ------")
                 return
             cords = self.find_target(
                 bottom_image,
@@ -363,14 +344,16 @@ class GameLauncher:
             self._mouse.move(center)
             self._mouse.click()
             time.sleep(10)
-            self.log_message(
-                "------ Now in city view mode ------")
+            if self._debug:
+                self.log_message(
+                    "------ Now in city view mode ------")
             return
         if view == OUTSIDE_VIEW:
             # go to outside city view
             if not cords:
-                self.log_message(
-                    "------ Now in outside city view mode ------")
+                if self._debug:
+                    self.log_message(
+                        "------ Now in outside city view mode ------")
                 return
             center = GameHelper.get_center(cords)
             self._mouse.set_position(coordinates.start_x,
@@ -378,8 +361,9 @@ class GameLauncher:
             self._mouse.move(*center)
             self._mouse.click()
             time.sleep(10)
-            self.log_message(
-                "------ Now in outside city view mode ------")
+            if self._debug:
+                self.log_message(
+                    "------ Now in outside city view mode ------")
             return
         raise LauncherException(f"View mode {view} not supported")
 
@@ -398,7 +382,6 @@ class GameLauncher:
         # extract the coordinates in reference to the main screen
         self._game_coordinates = GameHelper.get_relative_coordinates(
             self._app_coordinates, location)
-        print(self._game_coordinates)
         time.sleep(1)
 
     @retry(exception=LauncherException,
@@ -462,7 +445,8 @@ class GameLauncher:
         (template, min_val, min_loc, r) = found
         self.log_message(f'Matching min value: {min_val}')
         if min_val == 1:
-            self.log_message("Target image not found")
+            if self._debug:
+                self.log_message("Target image not found")
             return None
         # unpack the bookkeeping variable and compute the (x, y) coordinates
         # of the bounding box based on the resized ratio
@@ -485,7 +469,8 @@ class GameLauncher:
         # calculate Cosine Similarity python
         cosine_score = GameHelper.cosine_similarity(
             feature_vec_template, feature_vec_match)
-        self.log_message(f"Cosine score: {cosine_score}")
+        if self._debug:
+            self.log_message(f"Cosine score: {cosine_score}")
 
         threshold = threshold if threshold else 0.55
         if min_val < threshold and cosine_score > 0.50:
@@ -553,8 +538,8 @@ class GameLauncher:
             account_options[count] = cords_relative
         return account_options
 
-    def find_ocr_target(self,
-                        target: str,
+    @staticmethod
+    def find_ocr_target(target: Union[str, List[str]],
                         image, config: str = "") -> Optional[Coordinates]:
         """
         Finds the location of a target text

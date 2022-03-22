@@ -81,7 +81,7 @@ class Farm:
         # Move the mouse to the center
         self.launcher.mouse.set_position(self.launcher.app_coordinates.start_x,
                                          self.launcher.app_coordinates.start_y)
-        self.launcher.mouse.move(center[0]-100, center[1]-100)
+        self.launcher.mouse.move(center[0]-100, center[1]-150)
         center_position = self.launcher.mouse.position
         count = 4
         self.launcher.log_message(
@@ -93,10 +93,11 @@ class Farm:
             self.launcher.mouse.set_position(center_position.x,
                                              center_position.y)
             time.sleep(0.3)
-        self.launcher.mouse.drag(0, -100)
+        self.launcher.mouse.drag(0, -150)
         # Now we should be in the garage view.
         garage_image, garage_area_cords_relative = \
             self.launcher.get_screen_section(50, BOTTOM_IMAGE)
+
         cords = self.launcher.find_target(
             garage_image,
             self.launcher.target_templates('garage'),
@@ -164,7 +165,7 @@ class Farm:
         time.sleep(1)
         # now find the fleet army button
         garage_image, garage_area_cords_relative = \
-            self.launcher.get_screen_section(40, BOTTOM_IMAGE)
+            self.launcher.get_screen_section(50, BOTTOM_IMAGE)
         cords = self.launcher.find_target(
             garage_image,
             self.launcher.target_templates('garage-fleet'),
