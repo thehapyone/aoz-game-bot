@@ -328,9 +328,8 @@ class GameLauncher:
         if view == INSIDE_VIEW:
             # go to inside city view
             if cords:
-                if self._debug:
-                    self.log_message(
-                        "------ Now in city view mode ------")
+                self.log_message(
+                    "------ Now in city view mode ------")
                 return
             cords = self.find_target(
                 bottom_image,
@@ -344,16 +343,14 @@ class GameLauncher:
             self._mouse.move(center)
             self._mouse.click()
             time.sleep(10)
-            if self._debug:
-                self.log_message(
-                    "------ Now in city view mode ------")
+            self.log_message(
+                "------ Now in city view mode ------")
             return
         if view == OUTSIDE_VIEW:
             # go to outside city view
             if not cords:
-                if self._debug:
-                    self.log_message(
-                        "------ Now in outside city view mode ------")
+                self.log_message(
+                    "------ Now in outside city view mode ------")
                 return
             center = GameHelper.get_center(cords)
             self._mouse.set_position(coordinates.start_x,
@@ -361,9 +358,8 @@ class GameLauncher:
             self._mouse.move(*center)
             self._mouse.click()
             time.sleep(10)
-            if self._debug:
-                self.log_message(
-                    "------ Now in outside city view mode ------")
+            self.log_message(
+                "------ Now in outside city view mode ------")
             return
         raise LauncherException(f"View mode {view} not supported")
 
@@ -445,8 +441,7 @@ class GameLauncher:
         (template, min_val, min_loc, r) = found
         self.log_message(f'Matching min value: {min_val}')
         if min_val == 1:
-            if self._debug:
-                self.log_message("Target image not found")
+            self.log_message("Target image not found")
             return None
         # unpack the bookkeeping variable and compute the (x, y) coordinates
         # of the bounding box based on the resized ratio
@@ -469,15 +464,13 @@ class GameLauncher:
         # calculate Cosine Similarity python
         cosine_score = GameHelper.cosine_similarity(
             feature_vec_template, feature_vec_match)
-        if self._debug:
-            self.log_message(f"Cosine score: {cosine_score}")
+        self.log_message(f"Cosine score: {cosine_score}")
 
         threshold = threshold if threshold else 0.55
         if min_val < threshold and cosine_score > 0.50:
-            if self._debug:
-                self.log_message(
-                    f"Region is TopLeft: ({start_x}, {start_y}) and "
-                    f"bottomLeft: ({end_x}, {end_y})")
+            self.log_message(
+                f"Region is TopLeft: ({start_x}, {start_y}) and "
+                f"bottomLeft: ({end_x}, {end_y})")
             return Coordinates(start_x, start_y, end_x, end_y)
         else:
             self.log_message("Target image not found")

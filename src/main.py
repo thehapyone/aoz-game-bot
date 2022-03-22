@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # Run game launcher
     launcher = GameLauncher(mouse, keyboard,
-                            test_mode=True, enable_debug=False)
+                            test_mode=True, enable_debug=True)
     launcher.start_game(testing_app_coordinates)
 
     # Load the saved game profiles

@@ -221,7 +221,7 @@ class GameProfile:
         profile_area_image, profile_cords_relative = \
             self.launcher.get_screen_section(65, TOP_IMAGE)
         profile_area_image, profile_cords_relative = \
-            self.launcher.get_screen_section(52, BOTTOM_IMAGE,
+            self.launcher.get_screen_section(53, BOTTOM_IMAGE,
                                              profile_area_image,
                                              profile_cords_relative)
 
@@ -231,11 +231,24 @@ class GameProfile:
         gradient = cv2.morphologyEx(gray,
                                     cv2.MORPH_TOPHAT, kernel)
 
-        custom_config = r'-c tessedit_char_blacklist=_ --oem 3 --psm 6 '
+        images = (profile_area_image, gray, gradient)
 
-        location = self.launcher.find_ocr_target(target, gradient,
-                                                 custom_config)
-        if not location:
+        ocr_settings = (3, 4, 6)
+        found = False
+        location = None
+        for image in images:
+            for psm in ocr_settings:
+                config = fr'-c tessedit_char_blacklist=_ --oem 3 --psm {psm}'
+
+                location = self.launcher.find_ocr_target(target,
+                                                         image,
+                                                         config)
+                if location:
+                    found = True
+                    break
+            if found:
+                break
+        else:
             self.launcher.log_message(f"Account target {target} not found")
             raise ProfileException("Account not found")
 
