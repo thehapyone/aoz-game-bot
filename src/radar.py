@@ -328,7 +328,7 @@ class Radar:
         :return:
         """
         bottom_section, _ = self.launcher. \
-            get_screen_section(13, BOTTOM_IMAGE)
+            get_screen_section(14, BOTTOM_IMAGE)
 
         t_h, t_w, _ = bottom_section.shape
 
@@ -344,16 +344,20 @@ class Radar:
                         r'--oem 3 --psm 6'
         custom_config2 = r'-c tessedit_char_whitelist=0123456789 ' \
                          r'--oem 3 --psm 10'
-        zombie_level_val = get_text_from_image(image_processed,
-                                               custom_config)
-        zombie_level_val = zombie_level_val if zombie_level_val else \
-            ocr_from_contour(image_processed, custom_config2)
-        if zombie_level_val:
-            self.launcher.log_message(
-                f"Current level - {zombie_level_val}")
-            return int(zombie_level_val.strip())
 
-        raise RadarException("Current level can not be extracted")
+        level_val = get_text_from_image(image_processed,
+                                               custom_config)
+        level_val = level_val if level_val else \
+            ocr_from_contour(image_processed, custom_config2)
+        try:
+            level_val = int(level_val.strip())
+            if level_val <= 30:
+                self.launcher.log_message(
+                    f"Current level - {level_val}")
+                return level_val
+        except ValueError:
+            pass
+        raise RadarException(f"Current level {level_val} can not be extracted")
 
     @retry(exception=RadarException,
            message="No set-out button found",
