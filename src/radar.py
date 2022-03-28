@@ -432,7 +432,7 @@ class Radar:
         cords = self.launcher.find_target(
             conflict_area_image,
             self.launcher.target_templates('fleet-conflict'),
-            threshold=0.1
+            threshold=0.22
         )
         if not cords:
             return False

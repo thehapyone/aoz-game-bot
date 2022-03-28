@@ -1,11 +1,12 @@
 """Responsible for different farming activities"""
 import time
+from typing import Tuple, Optional
 
 import cv2
 import numpy as np
 
 from src.constants import INSIDE_VIEW, OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, \
-    RIGHT_IMAGE
+    RIGHT_IMAGE, LEFT_IMAGE
 from src.exceptions import FarmingException, RadarException
 from src.game_launcher import GameLauncher
 from src.helper import GameHelper, Coordinates, retry
@@ -42,8 +43,9 @@ class Farm:
         self._farm_type = farm_type
         self.level = farm_level
         self.launcher = launcher
-        self._max_fleet = None
-        self._current_fleet = None
+        self._max_fleet, self._current_fleet = None, None
+        self._wounded_count = None
+        self._total_units, self._idle_units = None, None
         self.radar = Radar(self.launcher)
 
     @property
@@ -81,7 +83,7 @@ class Farm:
         # Move the mouse to the center
         self.launcher.mouse.set_position(self.launcher.app_coordinates.start_x,
                                          self.launcher.app_coordinates.start_y)
-        self.launcher.mouse.move(center[0]-100, center[1]-150)
+        self.launcher.mouse.move(center[0] - 100, center[1] - 150)
         center_position = self.launcher.mouse.position
         count = 4
         self.launcher.log_message(
@@ -111,39 +113,125 @@ class Farm:
 
     def extract_fleet_values(self):
         """
-        Find the fleet queue section
-        :return:
+        Find the fleet queue section and other troop information.
+        The information returned contains data about the current fleet count,
+        max fleet, the current wounded count, total units, and lastly the
+        number of idle units.
         """
         fleet_image, area_cords_relative = self.launcher. \
             get_screen_section(25, TOP_IMAGE)
         fleet_image, area_cords_relative = self.launcher. \
             get_screen_section(46, BOTTOM_IMAGE, source=fleet_image,
                                reference_coords=area_cords_relative)
-        fleet_image, area_cords_relative = self.launcher. \
+
+        fleet_image_1, area_cords_relative = self.launcher. \
+            get_screen_section(45, LEFT_IMAGE, source=fleet_image,
+                               reference_coords=area_cords_relative)
+
+        fleet_image_2, area_cords_relative = self.launcher. \
             get_screen_section(40, RIGHT_IMAGE, source=fleet_image,
                                reference_coords=area_cords_relative)
+
         # send to ocr for analysis.
         white_min = (110, 110, 110)
         white_max = (255, 255, 255)
-        white_channel = cv2.inRange(fleet_image, white_min, white_max)
+
         custom_config = r'--oem 3 --psm 6'
+        # Process the fleet queues and wounded data
+        white_channel = cv2.inRange(fleet_image_2, white_min, white_max)
+        fleet_wounded_data = self._process_queues_and_wounded_data(
+            custom_config, white_channel)
+
+        # Process the total and idle units data
+        white_channel = cv2.inRange(fleet_image_1, white_min, white_max)
+        total_and_idle_data = self._process_total_and_idle_data(
+            custom_config, white_channel)
+
+        return fleet_wounded_data, total_and_idle_data
+
+    @staticmethod
+    def _extract_separator_values(separator_data: str):
+        """An helper function for separator extraction"""
+        if not separator_data:
+            return None, None
+        pre_separator = separator_data.split(' ')[-1]
+        separator_values = pre_separator.split('/')
+        return int(separator_values[0].replace(",", "")), \
+               int(separator_values[1].replace(",", ""))
+
+    def _process_queues_and_wounded_data(
+            self, custom_config, image) -> Tuple[int, int, Optional[int]]:
+        """Process and the Fleet queue and Wounded data information"""
         # extract the text
         image_ocr = get_text_from_image(
-            white_channel, custom_config).lower().strip()
+            image, custom_config).lower().strip()
         if not image_ocr:
             raise FarmingException("Fleet Queues could not be fetched")
+        fleets_data = None
+        wounded_data = None
         for data in image_ocr.splitlines():
             if not data.strip():
                 continue
-            if "fleet" in data:
-                break
-        else:
+            if "fleet" in data or "queues" in data:
+                fleets_data = data.strip()
+                continue
+            if "wounded" in data or "units" in data:
+                wounded_data = data.strip()
+        if not fleets_data:
             raise FarmingException("Fleet Queues section not in OCR result. "
                                    f"Response - {image_ocr}")
-        queue_separator_index = data.index('/')
-        current_fleet = int(data[queue_separator_index - 1])
-        max_fleet = int(data[queue_separator_index + 1])
-        return current_fleet, max_fleet
+        # extracts out the fleet values
+        try:
+            current_fleet, max_fleet = self._extract_separator_values(
+                fleets_data)
+        except ValueError:
+            raise FarmingException(
+                f"Fleet Queues values is invalid: {fleets_data}")
+        # extracts out the wounded values
+        try:
+            current_wounded, _ = self._extract_separator_values(wounded_data)
+        except ValueError as error:
+            self.launcher.log_message(
+                f"Invalid wounded values detected - {wounded_data}. Error: "
+                f"{str(error)}")
+            current_wounded = None
+        return current_fleet, max_fleet, current_wounded
+
+    def _process_total_and_idle_data(
+            self, custom_config, image) -> Tuple[Optional[int], Optional[int]]:
+        """Process the total units and idle units data"""
+        # extract the text
+        image_ocr = get_text_from_image(
+            image, custom_config).lower().strip()
+        if not image_ocr:
+            self.launcher.log_message(
+                "Total and idle units data not fetched")
+            return None, None
+        total_units_data = None
+        idle_units_data = None
+        for data in image_ocr.splitlines():
+            if not data.strip():
+                continue
+            if "total" in data:
+                total_units_data = data.strip()
+                continue
+            if "idle" in data:
+                idle_units_data = data.strip()
+
+        def get_units_value(units_data: Optional[str]):
+            if not units_data:
+                return None
+            value = units_data.split(" ")[-1]
+            try:
+                return int(value.replace(",", ""))
+            except ValueError as error:
+                self.launcher.log_message(
+                    f"Invalid value detected - {units_data}. Error: "
+                    f"{str(error)}")
+            return None
+
+        return get_units_value(total_units_data), \
+               get_units_value(idle_units_data)
 
     def get_fleet_count(self):
         """
@@ -185,7 +273,10 @@ class Farm:
         time.sleep(1)
 
         # now we should have the fleet screen.
-        self._current_fleet, self._max_fleet = self.extract_fleet_values()
+        fleet_wounded_data, units_data = self.extract_fleet_values()
+        self._current_fleet, self._max_fleet, self._wounded_count = \
+            fleet_wounded_data
+        self._total_units, self._idle_units = units_data
 
         # reset view back
         self.launcher.keyboard.back()
@@ -209,7 +300,8 @@ class Farm:
         time.sleep(1)
         self.launcher.mouse.click()
         time.sleep(2)
-        # take 3 different snapshots of the zombie and run through them all
+
+        # take 3 different snapshots
         snapshot_data = []
         gather_area_image = None
         for i in range(3):
@@ -278,7 +370,7 @@ class Farm:
 
         if not time_out:
             # no available troops left to deploy. Signal end of farming mode.
-            print("no more troops to deploy")
+            self.launcher.log_message("no more troops to deploy")
         self.launcher.log_message(f'----- time to target ----- {time_out}')
         return time_out
 
@@ -329,29 +421,38 @@ class Farm:
         # set farming view
         self.launcher.set_view(OUTSIDE_VIEW)
 
-        current_fleet = self.current_fleet
         self.launcher.log_message(
             f"------ Farming with a max fleet of {self.max_fleet} fleets"
-            f" and current fleet of {current_fleet} fleets --------")
+            f" and current fleet of {self.current_fleet} fleets --------")
 
         min_time = 2
 
-        while True:
-            if current_fleet < self.max_fleet:
-                try:
-                    self.gather_farm()
-                    # increase the current fleet by 1
-                    current_fleet = current_fleet + 1
-                except FarmingException as error:
-                    if str(error) in ["Out of troops",
-                                      "Out of levels for farming"]:
-                        break
-                    raise error
-            else:
-                break
-            time.sleep(min_time)
+        def commence_farming():
+            current_fleet = self.current_fleet
+            while True:
+                if current_fleet < self.max_fleet:
+                    try:
+                        self.gather_farm()
+                        # increase the current fleet by 1
+                        current_fleet = current_fleet + 1
+                    except FarmingException as error:
+                        if str(error) in ["Out of troops",
+                                          "Out of levels for farming"]:
+                            break
+                        raise error
+                else:
+                    break
+                time.sleep(min_time)
+
+        # Go farming only when we have available troops in the first place
+        if self._idle_units and self._idle_units > 2000:
+            self.launcher.log_message(
+                f"------ City has a total of {self._idle_units} idle units "
+                f"----------")
+            commence_farming()
+        # go farming if idle units not available
+        elif self._idle_units is None:
+            commence_farming()
 
         self.launcher.log_message(
-            '------ All troops deployed for farming. '
-            f'Total farming fleets are {current_fleet}/{self.max_fleet}'
-            '-------')
+            '------ All troops deployed for farming -------')
