@@ -24,6 +24,8 @@ class PlayerProfile:
     farming_level: int
     zombie_level: int
     zombie_fleets: List[int]
+    attack_zombies: int
+    enable_farming: int
 
 
 class GameProfile:

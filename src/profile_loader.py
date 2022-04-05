@@ -57,13 +57,16 @@ def load_profiles() -> List[PlayerProfile]:
         profile_config: dict = loaded_configs[profile]
         zombie_fleets = profile_config.get("zombie_fleets")
         zombie_fleets = [] if not zombie_fleets else \
-            [fleet.strip().lower()
+            [int(fleet.strip().lower())
              for fleet in zombie_fleets.strip().split(',')]
         profile_config["zombie_fleets"] = zombie_fleets
         profile_config["farming_type"] = int(profile_config["farming_type"])
         profile_config["farming_level"] = int(profile_config["farming_level"])
         profile_config["zombie_level"] = int(profile_config["zombie_level"])
-
+        profile_config["attack_zombies"] = int(profile_config.
+                                               get("attack_zombies", 0))
+        profile_config["enable_farming"] = int(profile_config.
+                                               get("enable_farming", 1))
         # create the game profile object
         game_profile = PlayerProfile(**profile_config)
         game_profiles.append(game_profile)

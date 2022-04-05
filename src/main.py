@@ -1,4 +1,5 @@
 import time
+from typing import List
 
 from src.farm.farming import Farm
 from src.game_launcher import GameLauncher
@@ -9,13 +10,12 @@ from src.profile_loader import load_profiles
 from src.zombies.zombies import Zombies
 
 
-def run_zombies():
+def run_zombies(level: int, fleets: List[int]):
     # zombie
-    time.sleep(5)
     zombie = Zombies(launcher)
     zombie.initialize_zombie()
     print('------------------------.-----------------')
-    zombie.kill_zombies(29, fleets=[2, 3, 4])
+    zombie.kill_zombies(level, fleets=fleets)
 
 
 def run_farming(farm_type, level):
@@ -28,8 +28,8 @@ def run_farming(farm_type, level):
 
 
 if __name__ == '__main__':
-    testing_app_coordinates = Coordinates(start_x=2615, start_y=400,
-                                          end_x=3490, end_y=1953)
+    testing_app_coordinates = Coordinates(start_x=16, start_y=124,
+                                          end_x=909, end_y=1689)
     mouse = MouseController()
     keyboard = KeyboardController()
 
@@ -66,17 +66,20 @@ if __name__ == '__main__':
             launcher.keyboard.shake()
             time.sleep(3)
             # Now do something with the loaded profile
-            run_farming(profile.farming_type, profile.farming_level)
+            if profile.attack_zombies:
+                run_zombies(profile.zombie_level, profile.zombie_fleets)
+            if profile.enable_farming:
+                run_farming(profile.farming_type, profile.farming_level)
         except Exception as error:
             launcher.log_message(
                 f"######### Error while processing profile {profile.name} "
                 "###########")
-            profile_errors[profile.name] = str(error)
+            error_snapshot = launcher.get_game_screen()
+            profile_errors[profile.name] = [str(error), error_snapshot]
             launcher.reset_to_home()
 
         launcher.log_message(
             f"######### Leaving profile {profile.name} ###########")
-        time.sleep(2)
 
     if profile_errors:
         launcher.log_message("Bot session finished with errors. ERRORS: \n")

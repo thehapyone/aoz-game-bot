@@ -1,7 +1,10 @@
 """The mouse listener code. Outputs the mouse screen interaction"""
 import time
+
 import pyautogui
 from multipledispatch import dispatch
+
+pyautogui.FAILSAFE = False
 
 
 class KeyboardController:

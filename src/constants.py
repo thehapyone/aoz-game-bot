@@ -1,4 +1,5 @@
 """Class for storing all the constants"""
+import os
 from pathlib import Path
 
 OUTSIDE_VIEW = 2
@@ -19,4 +20,5 @@ FARM_MINERAL = 4
 FARM_GOLD = 5
 
 # Config File path
-CONFIG_PATH = Path(__file__).parent.parent / "config.ini"
+CONFIG_PATH = Path(__file__).parent.parent / os.environ.\
+    get("AOZ_CONFIG", "config.ini")

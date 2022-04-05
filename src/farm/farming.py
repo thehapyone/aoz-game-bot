@@ -190,7 +190,7 @@ class Farm:
         # extracts out the wounded values
         try:
             current_wounded, _ = self._extract_separator_values(wounded_data)
-        except ValueError as error:
+        except Exception as error:
             self.launcher.log_message(
                 f"Invalid wounded values detected - {wounded_data}. Error: "
                 f"{str(error)}")
@@ -224,7 +224,7 @@ class Farm:
             value = units_data.split(" ")[-1]
             try:
                 return int(value.replace(",", ""))
-            except ValueError as error:
+            except Exception as error:
                 self.launcher.log_message(
                     f"Invalid value detected - {units_data}. Error: "
                     f"{str(error)}")
