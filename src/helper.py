@@ -1,9 +1,12 @@
 """Holds all the helper or support methods"""
 import subprocess
+from datetime import datetime
 from functools import partial, wraps
-from typing import NamedTuple, Tuple, Optional, Callable, Type
+from pathlib import Path
+from typing import NamedTuple, Tuple, Optional, Callable, Type, List
 
 import cv2 as cv
+import numpy
 import numpy as np
 from numpy import dot
 from numpy.linalg import norm
@@ -194,3 +197,37 @@ def display_image(image, name: str = None):
 
     cv.imshow(win_name, image)
     cv.waitKey(0)
+
+
+def output_log(directory: Path,
+               message_history: List[str],
+               snapshot_logs: List[Tuple[numpy.ndarray, str]]):
+    """
+    Outputs the log entries to the log directory
+
+    :param directory: The Path to the where the logs will be stored
+    :param message_history: A List of log messages
+    :param snapshot_logs: A List of logs snapshots
+    :return: Nothing
+    """
+
+    if not message_history:
+        return
+
+    # first we create a log directory if it doesn't exist
+    log_dir = directory.joinpath(".logs")
+    # create log dir
+    subprocess.run(["mkdir", "-p", str(log_dir.absolute())])
+
+    # create log folder for current request
+    dir_name = log_dir.joinpath(datetime.now().strftime("%d-%m-%yT%H-%M-%S"))
+    subprocess.run(["mkdir", "-p", str(dir_name.absolute())])
+
+    # write the message to log
+    with open(dir_name.joinpath("logs.txt"), "w") as log:
+        log.writelines(message_history)
+
+    # save the snapshot to logs
+    for image, name in snapshot_logs:
+        file_name = str(dir_name.joinpath(name).absolute())
+        cv.imwrite(file_name, image)

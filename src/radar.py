@@ -214,7 +214,7 @@ class Radar:
 
         # parse to date time
         timestamp = result.split(":")
-        timestamp = [int(value) for value in timestamp]
+        timestamp = [int(value.strip()) for value in timestamp]
         if len(timestamp) == 3:
             delta = timedelta(
                 hours=timestamp[0],

@@ -258,16 +258,12 @@ class GameProfile:
                         profile_cords_relative,
                         self.launcher.mouse)
 
-        # search for the confirm screen mode
         time.sleep(2)
-        confirm_area_image, area_cords_relative = \
-            self.launcher.get_screen_section(50, BOTTOM_IMAGE)
-        confirm_area_image, area_cords_relative = \
-            self.launcher.get_screen_section(20, TOP_IMAGE,
-                                             confirm_area_image,
-                                             area_cords_relative)
+        # search for the confirm screen mode
+        confirm_area_image, area_cords_relative = self.launcher.\
+            get_confirm_view()
         # find the target and click on it.
-        custom_config = r'--oem 3 --psm 3'
+        custom_config = r'--oem 3 --psm 6'
 
         white_min = (128, 128, 128)
         white_max = (255, 255, 255)

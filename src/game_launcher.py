@@ -8,6 +8,7 @@ import cv2 as cv
 import imutils
 import numpy as np
 from mss import mss
+from numpy import ndarray
 
 from src.constants import BOTTOM_IMAGE, TOP_IMAGE, LEFT_IMAGE, INSIDE_VIEW, \
     OUTSIDE_VIEW
@@ -124,7 +125,26 @@ class GameLauncher:
         self.mouse.set_position(self._app_coordinates.start_x + 50,
                                 self._app_coordinates.start_y + 50)
         self.mouse.click()
-        time.sleep(1)
+        time.sleep(2)
+
+        # First we check for a case were either the Confirm or Cancel popup
+        # shows blocking the use of 'esc' keyword
+        confirm_area_image, area_cords_relative = self.get_confirm_view()
+        # find the target and click on it.
+        custom_config = r'--oem 3 --psm 6'
+
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+        white_channel = cv.inRange(confirm_area_image, white_min, white_max)
+
+        special_case = self.find_ocr_target("Cancel", white_channel,
+                                            custom_config)
+
+        if special_case:
+            click_on_target(special_case,
+                            area_cords_relative,
+                            self.mouse)
+
         while attempts:
             # go back one view
             self.keyboard.back()
@@ -542,3 +562,13 @@ class GameLauncher:
         if not location:
             return None
         return location
+
+    def get_confirm_view(self) -> tuple[ndarray, Coordinates]:
+        """Returns an image of the confirm and cancel area"""
+        confirm_area_image, area_cords_relative = \
+            self.get_screen_section(50, BOTTOM_IMAGE)
+        confirm_area_image, area_cords_relative = \
+            self.get_screen_section(20, TOP_IMAGE,
+                                    confirm_area_image,
+                                    area_cords_relative)
+        return confirm_area_image, area_cords_relative

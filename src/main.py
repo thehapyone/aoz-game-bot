@@ -3,7 +3,7 @@ from typing import List
 
 from src.farm.farming import Farm
 from src.game_launcher import GameLauncher
-from src.helper import Coordinates
+from src.helper import Coordinates, output_log
 from src.listener import MouseController, KeyboardController
 from src.profile import GameProfile
 from src.profile_loader import load_profiles
@@ -27,9 +27,11 @@ def run_farming(farm_type, level):
     farm.all_out_farming()
 
 
+
+
 if __name__ == '__main__':
-    testing_app_coordinates = Coordinates(start_x=16, start_y=124,
-                                          end_x=909, end_y=1689)
+    testing_app_coordinates = Coordinates(start_x=54, start_y=107,
+                                          end_x=921, end_y=1665)
     mouse = MouseController()
     keyboard = KeyboardController()
 
@@ -83,7 +85,19 @@ if __name__ == '__main__':
 
     if profile_errors:
         launcher.log_message("Bot session finished with errors. ERRORS: \n")
-        for name, error in profile_errors.items():
-            launcher.log_message(f'Profile {name} generated error {error} \n')
+        log_history = []
+        log_image_history = []
+        for profile_name, error in profile_errors.items():
+            error_message, error_image = error
+            message = f'Profile {profile_name} ' \
+                      f'generated error {error_message} \n'
+            log_history.append(message)
+            snapshot_name = f"{profile_name.lower()}_log_image.png"
+            log_image_history.append((error_image, snapshot_name))
+            launcher.log_message(message)
+
+        # save all log messages
+        output_log(launcher.cwd, log_history, log_image_history)
     else:
         launcher.log_message("Bot session finished")
+
