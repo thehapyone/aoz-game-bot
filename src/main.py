@@ -3,7 +3,7 @@ from typing import List
 
 from src.farm.farming import Farm
 from src.game_launcher import GameLauncher
-from src.helper import Coordinates, output_log
+from src.helper import Coordinates, output_log, get_traceback
 from src.listener import MouseController, KeyboardController
 from src.profile import GameProfile
 from src.profile_loader import load_profiles
@@ -25,8 +25,6 @@ def run_farming(farm_type, level):
         farm_level=level,
         launcher=launcher)
     farm.all_out_farming()
-
-
 
 
 if __name__ == '__main__':
@@ -77,7 +75,9 @@ if __name__ == '__main__':
                 f"######### Error while processing profile {profile.name} "
                 "###########")
             error_snapshot = launcher.get_game_screen()
-            profile_errors[profile.name] = [str(error), error_snapshot]
+            error_trace = get_traceback(error)
+            profile_errors[profile.name] = [error_trace, str(error),
+                                            error_snapshot]
             launcher.reset_to_home()
 
         launcher.log_message(
@@ -88,16 +88,17 @@ if __name__ == '__main__':
         log_history = []
         log_image_history = []
         for profile_name, error in profile_errors.items():
-            error_message, error_image = error
-            message = f'Profile {profile_name} ' \
-                      f'generated error {error_message} \n'
-            log_history.append(message)
+            error_trace, error_message, error_image = error
+            message_trace = f'Profile {profile_name} ' \
+                            f'generated error. \n {error_trace} \n'
+            log_history.append(message_trace)
             snapshot_name = f"{profile_name.lower()}_log_image.png"
             log_image_history.append((error_image, snapshot_name))
+            message = f'Profile {profile_name} ' \
+                      f'generated error: \n "{error_message}" \n'
             launcher.log_message(message)
 
         # save all log messages
         output_log(launcher.cwd, log_history, log_image_history)
     else:
         launcher.log_message("Bot session finished")
-

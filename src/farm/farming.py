@@ -40,6 +40,7 @@ class Farm:
                  farm_type: int,
                  farm_level: int,
                  launcher: GameLauncher):
+        self._default_garage_used = False
         self._farm_type = farm_type
         self.level = farm_level
         self.launcher = launcher
@@ -243,7 +244,15 @@ class Farm:
         :return: Int
         """
         # get the garage
-        garage_cords = self.find_garage()
+        try:
+            garage_cords = self.find_garage()
+        except FarmingException as error:
+            if str(error) == "Unable to find the Garage":
+                self._default_garage_used = True
+                self._current_fleet, self._max_fleet = 0, 3
+                return
+            raise error
+
         garage_center = GameHelper.get_center(garage_cords)
         # click on garage
         self.launcher.mouse.set_position(garage_cords.start_x,
@@ -365,13 +374,15 @@ class Farm:
         except RadarException as error:
             if str(error) == "Can not extract set out time":
                 time_out = 0
+            elif str(error) == "No set-out button found" and \
+                    self._default_garage_used:
+                time_out = 0
             else:
                 raise error
 
         if not time_out:
             # no available troops left to deploy. Signal end of farming mode.
             self.launcher.log_message("no more troops to deploy")
-        self.launcher.log_message(f'----- time to target ----- {time_out}')
         return time_out
 
     @retry(exception=FarmingException,

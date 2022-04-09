@@ -1,7 +1,9 @@
 """Holds all the helper or support methods"""
 import subprocess
+import sys
 from datetime import datetime
 from functools import partial, wraps
+from logging import Formatter
 from pathlib import Path
 from typing import NamedTuple, Tuple, Optional, Callable, Type, List
 
@@ -231,3 +233,16 @@ def output_log(directory: Path,
     for image, name in snapshot_logs:
         file_name = str(dir_name.joinpath(name).absolute())
         cv.imwrite(file_name, image)
+
+
+def get_traceback(error: Exception) -> str:
+    """Gets the exception traceback history"""
+    if isinstance(error, BaseException):
+        exc_info = (type(error), error, error.__traceback__)
+    elif not isinstance(error, tuple):
+        exc_info = sys.exc_info()
+    else:
+        exc_info = [error]
+
+    error_formatter = Formatter()
+    return error_formatter.formatException(exc_info)
