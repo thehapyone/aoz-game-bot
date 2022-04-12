@@ -15,6 +15,7 @@ def load_profile_configs():
     Loads the configs and return a dictionary of all profile
     configurations.
     """
+
     loaded_configs = config.read(CONFIG_PATH)
     if not loaded_configs:
         raise FileNotFoundError(f"No config file found in path "
@@ -28,7 +29,8 @@ def load_profile_configs():
                                "available") from error
     # parse all profiles to list
     all_profiles = sorted(list({profile.strip().lower() for profile in
-                                all_profiles.strip().split(',')}))
+                                all_profiles.strip().split(',')}),
+                          key=lambda name: int(name.strip()[7:]))
 
     # parse configs to a proper dictionary
     configs_dict = {section: {key: value

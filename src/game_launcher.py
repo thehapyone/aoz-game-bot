@@ -1,5 +1,6 @@
 import subprocess
 import time
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Optional, List, Union
@@ -141,6 +142,10 @@ class GameLauncher:
                                             custom_config)
 
         if special_case:
+            # TODO : Remove this after successful debugging
+            file_name = "special_case_" + datetime.now().strftime(" \
+                        ""%d-%m-%yT%H-%M-%S") + ".png"
+            cv.imwrite(file_name, self.get_game_screen())
             click_on_target(special_case,
                             area_cords_relative,
                             self.mouse)
@@ -377,7 +382,7 @@ class GameLauncher:
                                      coordinates.start_y)
             self._mouse.move(*center)
             self._mouse.click()
-            time.sleep(10)
+            time.sleep(15)
             self.log_message(
                 "------ Now in outside city view mode ------")
             return

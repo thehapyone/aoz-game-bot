@@ -337,7 +337,7 @@ class Radar:
                         int(0.35 * t_w): t_w - int(0.35 * t_w)
                         ]
 
-        white_min = (175, 175, 175)
+        white_min = (180, 180, 180)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(level_section, white_min, white_max)
         custom_config = r'-c tessedit_char_whitelist=0123456789 ' \

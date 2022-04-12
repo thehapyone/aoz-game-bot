@@ -401,6 +401,8 @@ class Farm:
                 conflict = self.find_farm()
                 if not conflict:
                     break
+                # set the radar view again
+                self.radar.select_radar_menu(self._farm_type)
             except FarmingException as error:
                 if str(error) == "No farm gather button found":
                     # try again with a lower level
