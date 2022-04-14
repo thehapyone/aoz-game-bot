@@ -28,6 +28,9 @@ class GameLauncher:
     instance = None
     game_path = 'C:\Program Files\BlueStacks_nxt\HD-Player.exe'
     cwd = Path(__file__).cwd()
+
+    cache_file = cwd.joinpath("data", "game_cache.txt")
+
     _templates_path = {
         "app": str(cwd.joinpath("data", "app")),
         "game": str(cwd.joinpath("data", "game", "app_icon")),
@@ -65,7 +68,7 @@ class GameLauncher:
 
     def __init__(self, mouse: MouseController,
                  keyboard: KeyboardController,
-                 enable_debug=True, test_mode: bool = False):
+                 enable_debug=True, cache: bool = False):
         self._app_templates = None
         self.app_pid = None
         self._mss = mss()
@@ -75,7 +78,7 @@ class GameLauncher:
         self._aoz_launched = None
         self._mouse = mouse
         self._keyboard = keyboard
-        self._test_mode = test_mode
+        self._cache = cache
 
     @property
     def mouse(self):
@@ -87,21 +90,56 @@ class GameLauncher:
         """Returns the keyboard object"""
         return self._keyboard
 
-    def start_game(self, test_app_coordinates=None):
+    def _load_cache_coordinates(self) -> bool:
+        """Loads the saved cached coordinates and returns True or False"""
+        try:
+            with open(self.cache_file, 'r') as file:
+                cache_data = file.readlines()
+                location_data = cache_data[0].strip().split(':')[-1].split(',')
+                cords = Coordinates(
+                    start_x=int(location_data[0]),
+                    start_y=int(location_data[1]),
+                    end_x=int(location_data[2]),
+                    end_y=int(location_data[3])
+                )
+            self._app_coordinates = cords
+            return True
+        except Exception:
+            return False
+
+    def clear_cache(self):
+        """Clear the cache data"""
+        with open(self.cache_file, 'w') as file:
+            file.write("")
+
+    def start_game(self):
         """
         Starts and prep the AoZ game app
         :return:
         """
-        if self._test_mode and test_app_coordinates:
-            self._app_coordinates = test_app_coordinates
-            return
         self.log_message(
             "############## Launching Bluestack App now ##############")
         self.launch_app()
-        self.log_message("############## Finding the app screen ##############")
-        self.find_app()
-        self.log_message("############# Finding the game app ##############")
-        self.find_game()
+
+        if self._cache and self._load_cache_coordinates():
+            self.log_message(
+                "############## Using cached coordinates for app "
+                "##############")
+        else:
+            self.log_message("############## Finding the app screen "
+                             "##############")
+            self.find_app()
+
+        # check if the game app is loaded or not.
+        try:
+            self.log_message(
+                "############# Finding the game app ##############")
+            self.find_game()
+        except LauncherException as error:
+            if str(error) == "Game app not detected. Bot can't proceed":
+                # means the game screen is already loaded.
+                self._aoz_launched = True
+
         self.log_message("############# Launching game now ##############")
         self.launch_aoz()
 
@@ -115,7 +153,7 @@ class GameLauncher:
             if pid:
                 self.app_pid = pid
             else:
-                raise Exception("Error launching bluestack app")
+                raise LauncherException("Error launching bluestack app")
             # wait for the app to be ready.
             time.sleep(20)
 
@@ -393,13 +431,11 @@ class GameLauncher:
         Helper function for finding the coordinates of the AoZ game app
         :return:
         """
-        screen_image = cv.imread(self.screen_image_path, self.IMG_COLOR)
-        start_x, start_y, end_x, end_y = self._app_coordinates
-        reference_image = screen_image[start_y:end_y, start_x:end_x]
-        location = self.find_target(reference_image,
+        location = self.find_target(self.get_game_screen(),
                                     self.target_templates('game'))
         if not location:
-            raise Exception("Game app not detected. Bot can't proceed")
+            raise LauncherException(
+                "Game app not detected. Bot can't proceed")
         # extract the coordinates in reference to the main screen
         self._game_coordinates = GameHelper.get_relative_coordinates(
             self._app_coordinates, location)
@@ -414,7 +450,10 @@ class GameLauncher:
         emulator app. It returns the bound box location of the screen
         :return:
         """
-        # take the screenshot first
+        # go home first
+        self.keyboard.home()
+        time.sleep(2)
+        # take the screenshot
         screen_image = self.get_screenshot()
         location = self.find_target(screen_image,
                                     self.target_templates('app'))
@@ -423,6 +462,14 @@ class GameLauncher:
                 "Bluestack screen not detected. Bot can't proceed")
         self._app_coordinates = location
         self.log_message(f"App Coordinates - {self._app_coordinates}")
+
+        # save the latest coordinates to the cache directory
+        with open(self.cache_file, 'w') as file:
+            cords_data = f"Location:{self._app_coordinates.start_x}," \
+                         f"{self._app_coordinates.start_y}," \
+                         f"{self._app_coordinates.end_x}," \
+                         f"{self._app_coordinates.end_y}\n"
+            file.write(cords_data)
 
     def find_target(self, reference: np.ndarray,
                     target: List[np.ndarray],

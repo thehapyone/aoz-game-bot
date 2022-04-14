@@ -4,7 +4,7 @@ from typing import List
 
 from src.farm.farming import Farm
 from src.game_launcher import GameLauncher
-from src.helper import Coordinates, output_log, get_traceback
+from src.helper import output_log, get_traceback
 from src.listener import MouseController, KeyboardController
 from src.profile import GameProfile, PlayerProfile
 from src.profile_loader import load_profiles
@@ -35,6 +35,10 @@ def run_all_profiles(game_profiles: List[PlayerProfile]):
     :return:
     """
     profile_errors = {}
+
+    track_error_history = []
+
+    flag_bot = False
     # run all game profiles
     for profile in game_profiles:
         launcher.log_message(
@@ -60,14 +64,34 @@ def run_all_profiles(game_profiles: List[PlayerProfile]):
                 "###########")
             error_snapshot = launcher.get_game_screen()
             error_trace = get_traceback(error)
-            profile_errors[profile.name] = [error_trace, str(error),
+            error_mgs = str(error)
+            profile_errors[profile.name] = [error_trace,error_mgs,
                                             error_snapshot]
             launcher.reset_to_home()
+
+            # track error history - and flag continuous error pattern
+            if not track_error_history:
+                track_error_history.append(error_mgs)
+            else:
+                old_error = track_error_history[-1]
+                if old_error == error_mgs:
+                    track_error_history.append(error_mgs)
+                else:
+                    # reset the pattern history
+                    track_error_history = [error_mgs]
+
+            if len(track_error_history) >= 3:
+                # flag current bot operation
+                launcher.log_message(
+                    f"######### Continuous Error Pattern detected "
+                    "###########")
+                flag_bot = True
+                break
 
         launcher.log_message(
             f"######### Leaving profile {profile.name} ###########")
 
-    return profile_errors
+    return flag_bot, profile_errors
 
 
 def log_errors(profile_game_errors: dict):
@@ -98,16 +122,16 @@ def log_errors(profile_game_errors: dict):
 
 
 if __name__ == '__main__':
-    testing_app_coordinates = Coordinates(start_x=54, start_y=107,
-                                          end_x=921, end_y=1665)
     mouse = MouseController()
     keyboard = KeyboardController()
 
+    clear_cache_counter = 0
+
     # Run game launcher
     launcher = GameLauncher(mouse, keyboard,
-                            test_mode=True, enable_debug=True)
-    launcher.start_game(testing_app_coordinates)
-
+                            cache=True, enable_debug=True)
+    launcher.start_game()
+    first_launch = True
     # Load the saved game profiles
     game_profiles = load_profiles()
 
@@ -124,8 +148,19 @@ if __name__ == '__main__':
     while True:
         # run all the game profiles
         time.sleep(5)
-        game_errors = run_all_profiles(game_profiles)
+        flag_bot, game_errors = run_all_profiles(game_profiles)
         log_errors(game_errors)
 
-        # now wait again for a period of time before continuing
-        time.sleep(reload_time)
+        if flag_bot:
+            # reset the game launcher again.
+            clear_cache_counter = clear_cache_counter + 1
+            if clear_cache_counter >= 3 or first_launch:
+                launcher.clear_cache()
+            # relaunch game process again to fix issue
+            launcher.start_game()
+            first_launch = False
+        else:
+            clear_cache_counter = 0
+            first_launch = False
+            # now wait again for a period of time before continuing
+            time.sleep(reload_time)

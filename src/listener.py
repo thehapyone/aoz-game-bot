@@ -23,6 +23,14 @@ class KeyboardController:
         pyautogui.hotkey('ctrl', '3')
 
     @staticmethod
+    def home():
+        """
+        Initiate a home on the bluestack app
+        Shake key combination is = Ctrl + Shift + 1.
+        """
+        pyautogui.hotkey('ctrl', 'shift', '1')
+
+    @staticmethod
     def back():
         """
         Press the esc key to go back
