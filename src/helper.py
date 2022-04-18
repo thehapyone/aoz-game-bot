@@ -168,11 +168,15 @@ class GameHelper:
 
 def click_on_target(
         cords: Coordinates,
-        cords_reference: Coordinates,
+        cords_reference: Optional[Coordinates],
         mouse: MouseController, center: bool = False):
     """Clicks on a target"""
-    cords_relative = GameHelper.get_relative_coordinates(
-        cords_reference, cords)
+    if cords_reference:
+        cords_relative = GameHelper.get_relative_coordinates(
+            cords_reference, cords)
+    else:
+        cords_relative = cords
+
     mouse.set_position(cords_relative.start_x,
                        cords_relative.start_y)
     if center:

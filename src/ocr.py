@@ -53,13 +53,14 @@ def get_text_from_image(image: np.ndarray, config: str = '') -> str:
 
 def get_box_from_image(
         match: Union[str, List[str]], image: np.ndarray,
-        config: str = '') -> Optional[Coordinates]:
+        config: str = '', partial: bool = False) -> Optional[Coordinates]:
     """
     Perform OCR on a given image and returns the detected
     text bounding box
 
     :param match: The target string to match
     :param config: A custom config
+    :param partial: Return true if text in substring found as well.
     :param image: The input image
     :return: Text in image
     """
@@ -81,6 +82,11 @@ def get_box_from_image(
             if text.lower().strip() == match.lower().strip() \
                     and float(result['conf'][index]) >= 0:
                 break
+
+            if partial:
+                if match.lower().strip() in text.lower().strip() \
+                        and float(result['conf'][index]) >= 0:
+                    break
     else:
         return None
     # returns the bounding box

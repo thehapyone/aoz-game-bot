@@ -8,6 +8,7 @@ from src.helper import output_log, get_traceback
 from src.listener import MouseController, KeyboardController
 from src.profile import GameProfile, PlayerProfile
 from src.profile_loader import load_profiles
+from src.radar import Radar
 from src.zombies.zombies import Zombies
 
 
@@ -28,30 +29,31 @@ def run_farming(farm_type, level):
     farm.all_out_farming()
 
 
-def run_all_profiles(game_profiles: List[PlayerProfile]):
+def run_all_profiles(game_launcher: GameLauncher,
+                     profile_launcher: GameProfile,
+                     game_profiles: List[PlayerProfile]):
     """
     Run all game profiles available
 
     :return:
     """
     profile_errors = {}
-
     track_error_history = []
 
     flag_bot = False
     # run all game profiles
     for profile in game_profiles:
-        launcher.log_message(
+        game_launcher.log_message(
             f"######### Now launching profile {profile.name} ###########")
         try:
             profile_launcher.load_profile(profile)
 
             # now we click on the reward that popups on the game screen.
-            launcher.get_rewards()
+            game_launcher.get_rewards()
             # Reset the game screen
-            launcher.reset_to_home()
+            game_launcher.reset_to_home()
             # shake to collect available resources
-            launcher.keyboard.shake()
+            game_launcher.keyboard.shake()
             time.sleep(3)
             # Now do something with the loaded profile
             if profile.attack_zombies:
@@ -59,15 +61,15 @@ def run_all_profiles(game_profiles: List[PlayerProfile]):
             if profile.enable_farming:
                 run_farming(profile.farming_type, profile.farming_level)
         except Exception as error:
-            launcher.log_message(
+            game_launcher.log_message(
                 f"######### Error while processing profile {profile.name} "
                 "###########")
-            error_snapshot = launcher.get_game_screen()
+            error_snapshot = game_launcher.get_game_screen()
             error_trace = get_traceback(error)
             error_mgs = str(error)
             profile_errors[profile.name] = [error_trace,error_mgs,
                                             error_snapshot]
-            launcher.reset_to_home()
+            game_launcher.reset_to_home()
 
             # track error history - and flag continuous error pattern
             if not track_error_history:
@@ -82,13 +84,13 @@ def run_all_profiles(game_profiles: List[PlayerProfile]):
 
             if len(track_error_history) >= 3:
                 # flag current bot operation
-                launcher.log_message(
+                game_launcher.log_message(
                     f"######### Continuous Error Pattern detected "
                     "###########")
                 flag_bot = True
                 break
 
-        launcher.log_message(
+        game_launcher.log_message(
             f"######### Leaving profile {profile.name} ###########")
 
     return flag_bot, profile_errors
@@ -126,12 +128,15 @@ if __name__ == '__main__':
     keyboard = KeyboardController()
 
     clear_cache_counter = 0
+    first_launch = True
+    # wait for 1 hour before trying again
+    reload_time = 3600
 
     # Run game launcher
     launcher = GameLauncher(mouse, keyboard,
                             cache=True, enable_debug=True)
     launcher.start_game()
-    first_launch = True
+
     # Load the saved game profiles
     game_profiles = load_profiles()
 
@@ -140,27 +145,38 @@ if __name__ == '__main__':
         "###########")
 
     # the profile launcher
-    profile_launcher = GameProfile(launcher)
-
-    # wait for 1 hour before trying again
-    reload_time = 3600
+    game_profile_launcher = GameProfile(launcher)
 
     while True:
         # run all the game profiles
         time.sleep(5)
-        flag_bot, game_errors = run_all_profiles(game_profiles)
+        bot_error, game_errors = run_all_profiles(
+            game_launcher=launcher,
+            profile_launcher=game_profile_launcher,
+            game_profiles=game_profiles)
         log_errors(game_errors)
 
-        if flag_bot:
+        if bot_error:
             # reset the game launcher again.
             clear_cache_counter = clear_cache_counter + 1
-            if clear_cache_counter >= 3 or first_launch:
+            if clear_cache_counter >= 2 or first_launch:
+                first_launch = False
+                clear_cache_counter = 0
                 launcher.clear_cache()
+
+                # initialize a new launcher
+                launcher = GameLauncher(mouse, keyboard,
+                                        cache=True, enable_debug=True)
+                # also reset the Radar instance.
+                Radar.reset()
+                # reset the profile launcher
+                GameProfile.reset()
+                game_profile_launcher = GameProfile(launcher)
+
             # relaunch game process again to fix issue
             launcher.start_game()
-            first_launch = False
+
         else:
             clear_cache_counter = 0
-            first_launch = False
             # now wait again for a period of time before continuing
             time.sleep(reload_time)

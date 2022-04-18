@@ -37,6 +37,20 @@ class KeyboardController:
         """
         pyautogui.press('esc')
 
+    @staticmethod
+    def clear():
+        """
+        Press the backspace key to clear content
+        """
+        pyautogui.press('backspace')
+
+    @staticmethod
+    def write(message: str):
+        """
+        Write a set of contents
+        """
+        pyautogui.write(message)
+
 
 class MouseController:
     """
@@ -80,7 +94,7 @@ class MouseController:
         """
         Drags the mouse to a given position.
         """
-        self._mouse.drag(x, y, button=button, duration=0.5)
+        self._mouse.drag(x, y, button=button, duration=0.2)
 
 
 '''

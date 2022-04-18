@@ -63,8 +63,15 @@ class GameLauncher:
                                            "switch_account")),
         "switch-account-login": str(cwd.joinpath("data", "game",
                                                  "switch_account_login")),
+        "location-finder": str(cwd.joinpath("data", "game",
+                                            "location_finder")),
+        "lee": str(cwd.joinpath("data", "game",
+                                "lee")),
     }
     IMG_COLOR = cv.IMREAD_COLOR
+
+    location_finder_btn = None
+    location_cords_relative = None
 
     def __init__(self, mouse: MouseController,
                  keyboard: KeyboardController,
@@ -131,14 +138,9 @@ class GameLauncher:
             self.find_app()
 
         # check if the game app is loaded or not.
-        try:
-            self.log_message(
-                "############# Finding the game app ##############")
-            self.find_game()
-        except LauncherException as error:
-            if str(error) == "Game app not detected. Bot can't proceed":
-                # means the game screen is already loaded.
-                self._aoz_launched = True
+        self.log_message(
+            "############# Finding the game app ##############")
+        self.find_game()
 
         self.log_message("############# Launching game now ##############")
         self.launch_aoz()
@@ -426,6 +428,9 @@ class GameLauncher:
             return
         raise LauncherException(f"View mode {view} not supported")
 
+    @retry(exception=LauncherException,
+           message="Game app not detected. Bot can't proceed",
+           attempts=2)
     def find_game(self):
         """
         Helper function for finding the coordinates of the AoZ game app
@@ -433,13 +438,28 @@ class GameLauncher:
         """
         location = self.find_target(self.get_game_screen(),
                                     self.target_templates('game'))
-        if not location:
+
+        if location:
+            self._aoz_launched = False
+            # extract the coordinates in reference to the main screen
+            self._game_coordinates = GameHelper.get_relative_coordinates(
+                self._app_coordinates, location)
+            time.sleep(1)
+            return
+
+        # otherwise, check if the game has already launched
+        game_launched = self.find_target(self.get_screenshot(),
+                                         self.target_templates('app'))
+
+        if not game_launched:
+            # set back to home screen
+            self.keyboard.home()
+            time.sleep(1)
             raise LauncherException(
                 "Game app not detected. Bot can't proceed")
-        # extract the coordinates in reference to the main screen
-        self._game_coordinates = GameHelper.get_relative_coordinates(
-            self._app_coordinates, location)
-        time.sleep(1)
+
+        # aoz already launched
+        self._aoz_launched = True
 
     @retry(exception=LauncherException,
            message="Bluestack screen not detected. Bot can't proceed",
@@ -605,12 +625,14 @@ class GameLauncher:
 
     @staticmethod
     def find_ocr_target(target: Union[str, List[str]],
-                        image, config: str = "") -> Optional[Coordinates]:
+                        image, config: str = "", partial: bool = False) -> \
+            Optional[Coordinates]:
         """
         Finds the location of a target text
         and returns the first match of the bounding box
         """
-        location = get_box_from_image(target, image, config=config)
+        location = get_box_from_image(target, image, config=config,
+                                      partial=partial)
         if not location:
             return None
         return location
@@ -624,3 +646,203 @@ class GameLauncher:
                                     confirm_area_image,
                                     area_cords_relative)
         return confirm_area_image, area_cords_relative
+
+    def find_a_city(self, name: str):
+        """
+        Finds a city in the map and take a snapshot of the location.
+        :param name:
+        :return:
+        """
+
+        def click_location_finder():
+            if not self.location_finder_btn:
+                location_area_image, self.location_cords_relative = \
+                    self.get_screen_section(30, BOTTOM_IMAGE)
+
+                self.location_finder_btn = self.find_target(
+                    location_area_image,
+                    self.target_templates('location-finder'),
+                    threshold=0.25
+                )
+                if not self.location_finder_btn:
+                    raise LauncherException("Location position not found")
+
+            click_on_target(self.location_finder_btn,
+                            self.location_cords_relative,
+                            self.mouse, center=True)
+
+        def find_x_y_input():
+            area_image, area_cords_relative = \
+                self.get_screen_section(55, BOTTOM_IMAGE)
+            area_image, area_cords_relative = \
+                self.get_screen_section(10, TOP_IMAGE,
+                                        area_image,
+                                        area_cords_relative)
+            # find position X and position Y
+            width = area_cords_relative.end_x - area_cords_relative.start_x
+            mid_width = int(0.5 * width)
+            x_btn = Coordinates(
+                start_y=area_cords_relative.start_y,
+                end_y=area_cords_relative.end_y,
+                start_x=int((area_cords_relative.start_x + mid_width) *
+                            0.5),
+                end_x=int((area_cords_relative.start_x + mid_width) * 0.9)
+            )
+
+            y_btn = Coordinates(
+                start_y=area_cords_relative.start_y,
+                end_y=area_cords_relative.end_y,
+                start_x=int(area_cords_relative.end_x * 0.6),
+                end_x=int(area_cords_relative.end_x * 0.8),
+            )
+            return (x_btn, y_btn)
+
+        def find_go_btn():
+            area_image, area_cords_relative = \
+                self.get_screen_section(50, BOTTOM_IMAGE)
+            area_image, area_cords_relative = \
+                self.get_screen_section(30, TOP_IMAGE,
+                                        area_image,
+                                        area_cords_relative)
+
+            # Find the go button
+            go_button_cords = self.find_target(
+                area_image,
+                self.target_templates('go-button'),
+                threshold=0.25
+            )
+            if not go_button_cords:
+                raise LauncherException("Go btn position not found")
+
+            return GameHelper.get_relative_coordinates(
+                area_cords_relative, go_button_cords)
+
+        def input_x_y_position(input_position: list, new_pos: tuple):
+            for i in range(2):
+                click_on_target(input_position[i], None, self.mouse, True)
+
+                # add the input
+                # first clear the current content
+                for _ in range(5):
+                    self.keyboard.clear()
+                    time.sleep(0.1)
+
+                pos = new_pos[i]
+                # now enter the new content
+                self.keyboard.write(str(pos))
+
+                # save content written
+                click_on_target(input_position[i], None, self.mouse, True)
+
+                time.sleep(0.1)
+
+        x_min, x_max = (0, 1199)
+        y_min, y_max = (0, 1199)
+
+        # variables of locations
+        input_positions = [None, None]
+        go_btn_cords = None
+
+        custom_config = r'--oem 3 --psm 6'
+
+        for y in range(y_min, y_max + 1):
+            for x in range(x_min, x_max + 1):
+                # first click on the location finder finder
+                click_location_finder()
+                time.sleep(1)
+                # now input the x and y positions
+                if not input_positions[0]:
+                    input_positions = find_x_y_input()
+                # write the contents
+                input_x_y_position(input_positions, (x, y))
+                time.sleep(1)
+                # go the target
+                if not go_btn_cords:
+                    go_btn_cords = find_go_btn()
+                # click on go btn
+                click_on_target(go_btn_cords, None, self.mouse, True)
+                time.sleep(2)
+                # now search if target city is in view
+                center_area_image, area_cords_relative = \
+                    self.get_screen_section(60, TOP_IMAGE)
+                center_area_image, area_cords_relative = \
+                    self.get_screen_section(45, BOTTOM_IMAGE,
+                                            center_area_image,
+                                            area_cords_relative)
+
+                gray = cv.cvtColor(center_area_image, cv.COLOR_BGR2GRAY)
+
+                target_city = self.find_ocr_target(name, gray,
+                                                   custom_config, partial=False)
+                if target_city:
+                    print(f"Found {name} at location - {x},{y}")
+
+    def find_city(self):
+        """Finds a cc32 city"""
+
+        # Now set the cursor to the center of the game screen
+        center = GameHelper.get_center(self.app_coordinates)
+        # Move the mouse to the center
+        self.mouse.set_position(self.app_coordinates.start_x,
+                                self.app_coordinates.start_y)
+        self.mouse.move(center[0], center[1])
+        center_position = self.mouse.position
+
+        count = 1
+        x_range = 305
+        y_range = 305
+
+        templates_files = self.target_templates('lee')
+
+        def move_left():
+            for i in range(count):
+                self.mouse.drag(-250, 178)
+                self.mouse.set_position(center_position.x,
+                                        center_position.y)
+
+        def move_right():
+            for i in range(count):
+                self.mouse.drag(250, -178)
+                self.mouse.set_position(center_position.x,
+                                        center_position.y)
+
+        def move_up():
+            # now scroll up
+            self.mouse.drag(300, 150)
+            self.mouse.set_position(center_position.x,
+                                    center_position.y)
+
+        def find_lee():
+            area_image, area_cords_relative = \
+                self.get_screen_section(75, BOTTOM_IMAGE)
+
+            lee_cords = self.find_target(
+                area_image,
+                templates_files,
+                threshold=0.27
+            )
+
+            if lee_cords:
+                print("############### found lee ###########")
+                time_str = datetime.now(). \
+                    strftime("%d-%m-%yT%H-%M-%S")
+                file_name = f'lee/lee_{time_str}.png'
+                cv.imwrite(file_name, area_image)
+
+        for y_count in range(y_range):
+            for _ in range(x_range):
+                # move left
+                find_lee()
+                move_left()
+                time.sleep(0.1)
+            # move up
+            move_up()
+            for _ in range(x_range):
+                find_lee()
+                # move right
+                move_right()
+                time.sleep(0.1)
+
+            # move up
+            move_up()
+            time.sleep(0.1)

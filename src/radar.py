@@ -36,6 +36,11 @@ class Radar:
             cls._radar_options = None
         return cls._instance
 
+    @classmethod
+    def reset(cls):
+        """Reset the class instance"""
+        cls._instance = None
+
     @property
     def decrease_btn_cords(self) -> Coordinates:
         """

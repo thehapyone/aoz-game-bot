@@ -45,6 +45,11 @@ class GameProfile:
             return cls._instance
         return cls._instance
 
+    @classmethod
+    def reset(cls):
+        """Reset the class instance"""
+        cls._instance = None
+
     def activate_account_screen(self):
         """
         Activates the my info account screen.
