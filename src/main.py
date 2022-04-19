@@ -29,6 +29,16 @@ def run_farming(farm_type, level):
     farm.all_out_farming()
 
 
+def kill_elite_zombie(zombie: Zombies):
+    """kills the elite zombie for the profile"""
+    try:
+        zombie.kill_elite_zombie()
+    except Exception:
+        pass
+    # reset back to home
+    zombie.launcher.reset_to_home()
+
+
 def run_all_profiles(game_launcher: GameLauncher,
                      profile_launcher: GameProfile,
                      game_profiles: List[PlayerProfile]):
@@ -41,6 +51,8 @@ def run_all_profiles(game_launcher: GameLauncher,
     track_error_history = []
 
     flag_bot = False
+
+    elite_zombie = Zombies(game_launcher)
     # run all game profiles
     for profile in game_profiles:
         game_launcher.log_message(
@@ -55,6 +67,9 @@ def run_all_profiles(game_launcher: GameLauncher,
             # shake to collect available resources
             game_launcher.keyboard.shake()
             time.sleep(3)
+            # Kill the Elite zombie if available
+            kill_elite_zombie(elite_zombie)
+
             # Now do something with the loaded profile
             if profile.attack_zombies:
                 run_zombies(profile.zombie_level, profile.zombie_fleets)

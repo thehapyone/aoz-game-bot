@@ -50,19 +50,20 @@ class GameProfile:
         """Reset the class instance"""
         cls._instance = None
 
-    def activate_account_screen(self):
+    @staticmethod
+    def activate_menu_screen(launcher: GameLauncher, menu: int):
         """
-        Activates the my info account screen.
+        Activates the my info menu screen.
 
         :return: None
         """
-        _, menu_dict, _ = self.launcher.bottom_menu()
-        account_cords = menu_dict[5]
+        _, menu_dict, _ = launcher.bottom_menu()
+        account_cords = menu_dict[menu]
         center = GameHelper.get_center(account_cords)
-        self.launcher.mouse.set_position(account_cords.start_x,
+        launcher.mouse.set_position(account_cords.start_x,
                                          account_cords.start_y)
-        self.launcher.mouse.move(center)
-        self.launcher.mouse.click()
+        launcher.mouse.move(center)
+        launcher.mouse.click()
         time.sleep(2)
 
     @retry(exception=ProfileException,
@@ -176,7 +177,7 @@ class GameProfile:
         profiles.
         :return:
         """
-        self.activate_account_screen()
+        self.activate_menu_screen(self.launcher, menu=5)
         account_menu = self.launcher.get_account_menu
         account_cords = account_menu[3]
         center = GameHelper.get_center(account_cords)

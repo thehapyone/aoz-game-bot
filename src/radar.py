@@ -211,7 +211,6 @@ class Radar:
             result = get_text_from_image(top_hat, custom_config).strip()
 
             if not result:
-                cv2.imwrite('time-error.png', image)
                 raise RadarException("Can not extract set out time")
 
         if result == "0":
@@ -351,7 +350,7 @@ class Radar:
                          r'--oem 3 --psm 10'
 
         level_val = get_text_from_image(image_processed,
-                                               custom_config)
+                                        custom_config)
         level_val = level_val if level_val else \
             ocr_from_contour(image_processed, custom_config2)
         try:
@@ -367,10 +366,12 @@ class Radar:
     @retry(exception=RadarException,
            message="No set-out button found",
            attempts=2)
-    def find_set_out(self, fleet_id: int = None) -> tuple[Coordinates, int]:
+    def find_set_out(self, fleet_id: int = None,
+                     override_time: bool = False) -> tuple[Coordinates, int]:
         """
         Finds out the set out button and also extract the time of trip.
 
+        :param override_time:
         :param fleet_id: The fleet to use for deployment
         :return: The set out button coordinates and the set out time.
         """
@@ -394,25 +395,32 @@ class Radar:
                 get_relative_coordinates(
                 cords_relative, cords)
             self._set_out_btn_cords = cords_relative
-        time_section = self.launcher.get_screenshot()[
-                       self._set_out_btn_cords.start_y - 35:
-                       self._set_out_btn_cords.start_y,
-                       self._set_out_btn_cords.start_x:
-                       self._set_out_btn_cords.end_x - 20]
-        set_time = self.get_set_out_time(time_section)
-        return self._set_out_btn_cords, set_time
+
+        if not override_time:
+            time_section = self.launcher.get_screenshot()[
+                           self._set_out_btn_cords.start_y - 35:
+                           self._set_out_btn_cords.start_y,
+                           self._set_out_btn_cords.start_x:
+                           self._set_out_btn_cords.end_x - 20]
+            set_time = self.get_set_out_time(time_section)
+            return self._set_out_btn_cords, set_time
+        else:
+            # no need to calculate the time
+            return self._set_out_btn_cords, 0
 
     def send_fleet(self,
-                   fleet_id: int = None) -> int:
+                   fleet_id: int = None,
+                   override_time: bool = False) -> int:
         """
         Sends out a troop fleet out to the target and also returns their set
         out time.
 
+        :param override_time: Override the behaviour of the setout time
         :param fleet_id: The fleet to use for deployment. Optional
         :return: The troop set out time.
         """
-        position, time_out = self.find_set_out(fleet_id)
-        if time_out:
+        position, time_out = self.find_set_out(fleet_id, override_time)
+        if time_out or override_time:
             self.launcher.mouse.set_position(position.start_x,
                                              position.start_y)
             self.launcher.mouse.move(GameHelper.get_center(position))

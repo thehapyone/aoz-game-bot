@@ -9,8 +9,9 @@ import numpy as np
 from src.constants import OUTSIDE_VIEW, BOTTOM_IMAGE, TOP_IMAGE, ZOMBIE_MENU
 from src.exceptions import ZombieException, RadarException
 from src.game_launcher import GameLauncher
-from src.helper import GameHelper, Coordinates, retry
+from src.helper import GameHelper, Coordinates, retry, click_on_target
 from src.ocr import get_text_from_image
+from src.profile import GameProfile
 from src.radar import Radar
 
 
@@ -450,3 +451,149 @@ class Zombies:
 
         self.launcher.log_message(
             '------ Fuel is below minimum level -------')
+
+    def kill_elite_zombie(self):
+        """Kills any available elite zombie"""
+        # go to alliance mode
+        GameProfile.activate_menu_screen(self.launcher, menu=4)
+        # perform ocr search for elite zombies
+        custom_config = r'--oem 3 --psm 6'
+        zombie_area_image, area_cords_relative = \
+            self.launcher.get_screen_section(60, BOTTOM_IMAGE)
+        zombie_location = self.launcher.find_ocr_target(
+            target=["challenge", "zombie"], image=zombie_area_image,
+            config=custom_config
+        )
+        if not zombie_location:
+            raise ZombieException("Unable to find Elite Zombie menu")
+
+        # click on target elite
+        click_on_target(
+            zombie_location,
+            area_cords_relative,
+            self.launcher.mouse
+        )
+
+        time.sleep(3)
+
+        # get the battle view button
+        battle_area_image, area_cords_relative = \
+            self.launcher.get_screen_section(65, BOTTOM_IMAGE)
+        battle_area_image, area_cords_relative = \
+            self.launcher.get_screen_section(60, TOP_IMAGE,
+                                             battle_area_image,
+                                             area_cords_relative)
+
+        battle_location = self.launcher.find_target(
+            battle_area_image,
+            self.launcher.target_templates('battle_button'),
+            threshold=0.35
+        )
+        if not battle_location:
+            raise ZombieException("Unable to fine Elite Zombie battle "
+                                  "button")
+
+        # get battle count
+        battle_count_image = battle_area_image[
+                             battle_location.start_y:battle_location.end_y,
+                             battle_location.start_x:battle_location.end_x
+                             ]
+        custom_config = r'-c tessedit_char_whitelist=012/ --oem 3 --psm 6'
+        image_ocr = get_text_from_image(
+            battle_count_image, custom_config).lower().strip()
+        try:
+            current_count = int(image_ocr.split("/")[0].strip())
+        except (IndexError, ValueError):
+            raise ZombieException("Error extracting elite zombie battle "
+                                  f"count: {image_ocr}")
+
+        skip_details = (None, None)
+        okay_details = (None, None)
+
+        while current_count:
+            # now kill the zombie
+            skip_details, okay_details = self._kill_elite_zombie(
+                area_cords_relative, battle_location, *skip_details,
+                *okay_details
+            )
+            current_count = current_count - 1
+
+    def _kill_elite_zombie(self, area_cords_relative,
+                           battle_location,
+                           skip_location, skip_cords_relative,
+                           okay_btn, okay_cords_relative):
+        """Kills the next available elite zombie"""
+
+        custom_config = r'--oem 3 --psm 6'
+
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+
+        # clicks on the battle button
+        click_on_target(
+            battle_location,
+            area_cords_relative,
+            self.launcher.mouse, True)
+
+        time.sleep(1.5)
+
+        # deploy fleet. Use default fleet
+        _ = self.radar.send_fleet(override_time=True)
+        time.sleep(2)
+
+        # find the skip button
+        if not skip_location:
+            skip_area_image, skip_cords_relative = \
+                self.launcher.get_screen_section(40, TOP_IMAGE)
+            skip_location = self.launcher.find_target(
+                skip_area_image,
+                self.launcher.target_templates('elite_zombie_skip'),
+                threshold=0.35
+            )
+        if not skip_location:
+            self.launcher.log_message("Skip button not found. Will wait "
+                                      "for 60 secs")
+            time.sleep(50)
+        else:
+            click_on_target(
+                skip_location,
+                skip_cords_relative,
+                self.launcher.mouse, True)
+
+            time.sleep(2)
+
+            # click on the confirm
+            confirm_area_image, area_cords_relative = \
+                self.launcher.get_confirm_view()
+
+            # find the target and click on it.
+            white_channel = cv2.inRange(confirm_area_image, white_min,
+                                        white_max)
+
+            confirm_btn = self.launcher.find_ocr_target("Confirm",
+                                                        white_channel,
+                                                        custom_config)
+
+            click_on_target(confirm_btn,
+                            area_cords_relative,
+                            self.launcher.mouse)
+
+            time.sleep(7)
+
+        if not okay_btn:
+            # now find the okay button and click on it
+            okay_area_image, okay_cords_relative = \
+                self.launcher.get_screen_section(40, BOTTOM_IMAGE)
+            white_channel = cv2.inRange(okay_area_image, white_min,
+                                        white_max)
+            okay_btn = self.launcher.find_ocr_target("Ok",
+                                                     white_channel,
+                                                     custom_config)
+        # click on the go button
+        click_on_target(okay_btn, okay_cords_relative,
+                        self.launcher.mouse, True)
+        # wait 3 secs
+        time.sleep(3)
+
+        return (skip_location, skip_cords_relative), \
+               (okay_btn, okay_cords_relative)

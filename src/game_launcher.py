@@ -65,8 +65,10 @@ class GameLauncher:
                                                  "switch_account_login")),
         "location-finder": str(cwd.joinpath("data", "game",
                                             "location_finder")),
-        "lee": str(cwd.joinpath("data", "game",
-                                "lee")),
+        "battle_button": str(cwd.joinpath("data", "game",
+                                          "battle_button")),
+        "elite_zombie_skip": str(cwd.joinpath("data", "game",
+                                              "elite_zombie_skip")),
     }
     IMG_COLOR = cv.IMREAD_COLOR
 
