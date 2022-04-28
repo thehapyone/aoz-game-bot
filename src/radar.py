@@ -338,17 +338,16 @@ class Radar:
 
         level_section = bottom_section[
                         0:t_h - int(0.52 * t_h),
-                        int(0.35 * t_w): t_w - int(0.35 * t_w)
+                        int(0.35 * t_w): t_w - int(0.45 * t_w)
                         ]
 
-        white_min = (180, 180, 180)
+        white_min = (175, 175, 175)
         white_max = (255, 255, 255)
         image_processed = cv2.inRange(level_section, white_min, white_max)
         custom_config = r'-c tessedit_char_whitelist=0123456789 ' \
                         r'--oem 3 --psm 6'
         custom_config2 = r'-c tessedit_char_whitelist=0123456789 ' \
                          r'--oem 3 --psm 10'
-
         level_val = get_text_from_image(image_processed,
                                         custom_config)
         level_val = level_val if level_val else \

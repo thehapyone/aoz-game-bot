@@ -31,6 +31,9 @@ def ocr_from_contour(image: np.ndarray,
     result = []
     for c in cnts:
         (x, y, w, h) = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
+        if area < 30:
+            continue
         roi = image[y:y + h, x:x + w]
         roi = cv2.resize(roi, (57, 88))
         output = ocr.image_to_string(roi, config=config)

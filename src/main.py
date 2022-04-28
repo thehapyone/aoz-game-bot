@@ -97,7 +97,7 @@ def run_all_profiles(game_launcher: GameLauncher,
                     # reset the pattern history
                     track_error_history = [error_mgs]
 
-            if len(track_error_history) >= 3:
+            if len(track_error_history) >= 5:
                 # flag current bot operation
                 game_launcher.log_message(
                     f"######### Continuous Error Pattern detected "

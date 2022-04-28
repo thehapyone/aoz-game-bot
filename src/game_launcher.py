@@ -170,27 +170,7 @@ class GameLauncher:
         self.mouse.click()
         time.sleep(2)
 
-        # First we check for a case were either the Confirm or Cancel popup
-        # shows blocking the use of 'esc' keyword
-        confirm_area_image, area_cords_relative = self.get_confirm_view()
-        # find the target and click on it.
-        custom_config = r'--oem 3 --psm 6'
-
-        white_min = (128, 128, 128)
-        white_max = (255, 255, 255)
-        white_channel = cv.inRange(confirm_area_image, white_min, white_max)
-
-        special_case = self.find_ocr_target("Cancel", white_channel,
-                                            custom_config)
-
-        if special_case:
-            # TODO : Remove this after successful debugging
-            file_name = "special_case_" + datetime.now().strftime(" \
-                        ""%d-%m-%yT%H-%M-%S") + ".png"
-            cv.imwrite(file_name, self.get_game_screen())
-            click_on_target(special_case,
-                            area_cords_relative,
-                            self.mouse)
+        self.check_special_case_reset()
 
         while attempts:
             # go back one view
@@ -217,6 +197,36 @@ class GameLauncher:
                     "------- View now back to home ---------")
                 break
             attempts = attempts - 1
+
+    def check_special_case_reset(self):
+        # First we check for a case were either the Confirm or Cancel popup
+        # shows blocking the use of 'esc' keyword
+        confirm_area_image, area_cords_relative = self.get_confirm_view()
+        # find the target and click on it.
+        custom_config = r'--oem 3 --psm 6'
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+        white_channel = cv.inRange(confirm_area_image, white_min, white_max)
+        special_case = self.find_ocr_target("Cancel", white_channel,
+                                            custom_config)
+        if special_case:
+            click_on_target(special_case,
+                            area_cords_relative,
+                            self.mouse)
+            time.sleep(3)
+
+        # special case two --check for the presence of okay
+        okay_area_image, okay_cords_relative = \
+            self.get_screen_section(40, BOTTOM_IMAGE)
+        white_channel = cv.inRange(okay_area_image, white_min,
+                                   white_max)
+        okay_btn = self.find_ocr_target("Ok", white_channel,
+                                        custom_config)
+        if okay_btn:
+            # click on the okay button
+            click_on_target(okay_btn, okay_cords_relative,
+                            self.mouse, True)
+            time.sleep(2)
 
     def get_rewards(self):
         """Get the rewards that shows on the home screen"""
@@ -438,8 +448,16 @@ class GameLauncher:
         Helper function for finding the coordinates of the AoZ game app
         :return:
         """
-        location = self.find_target(self.get_game_screen(),
-                                    self.target_templates('game'))
+
+        custom_config = r'--oem 3 --psm 6'
+
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+        white_channel = cv.inRange(self.get_game_screen(),
+                                   white_min, white_max)
+
+        location = self.find_ocr_target(["age", "origins"], white_channel,
+                                        custom_config)
 
         if location:
             self._aoz_launched = False

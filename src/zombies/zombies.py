@@ -51,6 +51,8 @@ class Zombies:
     _attack_duration = 2
 
     def __init__(self, launcher: GameLauncher):
+        self._okay_btn, self._okay_cords_relative = None, None
+        self._skip_location, self._skip_cords_relative = None, None
         self._fuel = None
         self.launcher = launcher
         self._max_level = None
@@ -507,21 +509,16 @@ class Zombies:
             raise ZombieException("Error extracting elite zombie battle "
                                   f"count: {image_ocr}")
 
-        skip_details = (None, None)
-        okay_details = (None, None)
-
         while current_count:
             # now kill the zombie
-            skip_details, okay_details = self._kill_elite_zombie(
-                area_cords_relative, battle_location, *skip_details,
-                *okay_details
+            self._kill_elite_zombie(
+                area_cords_relative, battle_location
             )
             current_count = current_count - 1
 
     def _kill_elite_zombie(self, area_cords_relative,
                            battle_location,
-                           skip_location, skip_cords_relative,
-                           okay_btn, okay_cords_relative):
+                           ):
         """Kills the next available elite zombie"""
 
         custom_config = r'--oem 3 --psm 6'
@@ -542,25 +539,25 @@ class Zombies:
         time.sleep(2)
 
         # find the skip button
-        if not skip_location:
-            skip_area_image, skip_cords_relative = \
+        if not self._skip_location:
+            skip_area_image, self._skip_cords_relative = \
                 self.launcher.get_screen_section(40, TOP_IMAGE)
-            skip_location = self.launcher.find_target(
+            self._skip_location = self.launcher.find_target(
                 skip_area_image,
                 self.launcher.target_templates('elite_zombie_skip'),
-                threshold=0.35
+                threshold=0.32
             )
-        if not skip_location:
+        if not self._skip_location:
             self.launcher.log_message("Skip button not found. Will wait "
-                                      "for 60 secs")
+                                      "for 50 secs")
             time.sleep(50)
         else:
             click_on_target(
-                skip_location,
-                skip_cords_relative,
+                self._skip_location,
+                self._skip_cords_relative,
                 self.launcher.mouse, True)
 
-            time.sleep(2)
+            time.sleep(4)
 
             # click on the confirm
             confirm_area_image, area_cords_relative = \
@@ -574,26 +571,25 @@ class Zombies:
                                                         white_channel,
                                                         custom_config)
 
-            click_on_target(confirm_btn,
-                            area_cords_relative,
-                            self.launcher.mouse)
+            if confirm_btn:
+                click_on_target(confirm_btn,
+                                area_cords_relative,
+                                self.launcher.mouse)
 
             time.sleep(7)
 
-        if not okay_btn:
+        if not self._okay_btn:
             # now find the okay button and click on it
-            okay_area_image, okay_cords_relative = \
+            okay_area_image, self._okay_cords_relative = \
                 self.launcher.get_screen_section(40, BOTTOM_IMAGE)
             white_channel = cv2.inRange(okay_area_image, white_min,
                                         white_max)
-            okay_btn = self.launcher.find_ocr_target("Ok",
-                                                     white_channel,
-                                                     custom_config)
-        # click on the go button
-        click_on_target(okay_btn, okay_cords_relative,
-                        self.launcher.mouse, True)
+            self._okay_btn = self.launcher.find_ocr_target("Ok",
+                                                           white_channel,
+                                                           custom_config)
+        # click on the okay button
+        if self._okay_btn:
+            click_on_target(self._okay_btn, self._okay_cords_relative,
+                            self.launcher.mouse, True)
         # wait 3 secs
         time.sleep(3)
-
-        return (skip_location, skip_cords_relative), \
-               (okay_btn, okay_cords_relative)

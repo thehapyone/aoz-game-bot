@@ -61,7 +61,7 @@ class GameProfile:
         account_cords = menu_dict[menu]
         center = GameHelper.get_center(account_cords)
         launcher.mouse.set_position(account_cords.start_x,
-                                         account_cords.start_y)
+                                    account_cords.start_y)
         launcher.mouse.move(center)
         launcher.mouse.click()
         time.sleep(2)
@@ -77,10 +77,9 @@ class GameProfile:
         """
         image_section, area_cords_relative = \
             self.launcher.get_screen_section(30, BOTTOM_IMAGE)
-
-        area_cords = self.launcher.find_target(
-            image_section,
-            self.launcher.target_templates('switch-account'))
+        area_cords = self.launcher.find_ocr_target('switch',
+                                                   image_section,
+                                                   r'--oem 3 --psm 6')
         if not area_cords:
             raise ProfileException("Switch account button not found")
         area_cords_relative = GameHelper.get_relative_coordinates(
@@ -101,26 +100,26 @@ class GameProfile:
         """Activates the login button in the switch account screen"""
 
         login_area_image, login_cords_relative = \
-            self.launcher.get_screen_section(65, BOTTOM_IMAGE)
+            self.launcher.get_screen_section(50, BOTTOM_IMAGE)
         login_area_image, login_cords_relative = \
             self.launcher.get_screen_section(50, TOP_IMAGE,
                                              login_area_image,
                                              login_cords_relative)
 
-        login_cords = self.launcher.find_target(
-            login_area_image,
-            self.launcher.target_templates('switch-account-login'))
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+        white_channel = cv2.inRange(login_area_image, white_min, white_max)
+
+        login_cords = self.launcher.find_ocr_target('login',
+                                                    white_channel,
+                                                    r'--oem 3 --psm 6')
 
         if not login_cords:
             raise ProfileException("Switch account login button not found")
 
-        login_cords_relative = GameHelper.get_relative_coordinates(
-            login_cords_relative, login_cords)
-        center = GameHelper.get_center(login_cords_relative)
-        self.launcher.mouse.set_position(login_cords_relative.start_x,
-                                         login_cords_relative.start_y)
-        self.launcher.mouse.move(center)
-        self.launcher.mouse.click()
+        click_on_target(
+            login_cords, login_cords_relative, self.launcher.mouse
+        )
         time.sleep(5)
 
     @retry(exception=ProfileException,
@@ -266,7 +265,7 @@ class GameProfile:
 
         time.sleep(2)
         # search for the confirm screen mode
-        confirm_area_image, area_cords_relative = self.launcher.\
+        confirm_area_image, area_cords_relative = self.launcher. \
             get_confirm_view()
         # find the target and click on it.
         custom_config = r'--oem 3 --psm 6'
