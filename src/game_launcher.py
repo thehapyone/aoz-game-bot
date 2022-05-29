@@ -235,10 +235,12 @@ class GameLauncher:
 
         self.log_message("Finding the available rewards button.")
 
-        rewards_location = self.find_target(
-            rewards_area_image,
-            self.target_templates('rewards'),
-            threshold=0.2)
+        custom_config = r'--oem 3 --psm 6'
+        white_min = (128, 128, 128)
+        white_max = (255, 255, 255)
+        white_channel = cv.inRange(rewards_area_image, white_min, white_max)
+        rewards_location = self.find_ocr_target("Claim", white_channel,
+                                                custom_config)
 
         if rewards_location:
             click_on_target(rewards_location,

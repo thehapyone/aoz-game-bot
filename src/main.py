@@ -152,6 +152,18 @@ if __name__ == '__main__':
                             cache=True, enable_debug=True)
     launcher.start_game()
 
+    """
+    image = launcher.get_game_screen()
+
+    custom_config = r'--oem 3 --psm 6'
+    white_min = (128, 128, 128)
+    white_max = (255, 255, 255)
+    white_channel = cv2.inRange(image, white_min, white_max)
+    launcher.find_ocr_target('Elite', white_channel)
+    exit(6)
+    """
+
+
     # Load the saved game profiles
     game_profiles = load_profiles()
 
