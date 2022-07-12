@@ -584,7 +584,7 @@ class Zombies:
                 self.launcher.get_screen_section(40, BOTTOM_IMAGE)
             white_channel = cv2.inRange(okay_area_image, white_min,
                                         white_max)
-            self._okay_btn = self.launcher.find_ocr_target("Ok",
+            self._okay_btn = self.launcher.find_ocr_target("ok",
                                                            white_channel,
                                                            custom_config)
         # click on the okay button

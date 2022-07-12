@@ -220,7 +220,7 @@ class GameLauncher:
             self.get_screen_section(40, BOTTOM_IMAGE)
         white_channel = cv.inRange(okay_area_image, white_min,
                                    white_max)
-        okay_btn = self.find_ocr_target("Ok", white_channel,
+        okay_btn = self.find_ocr_target("ok", white_channel,
                                         custom_config)
         if okay_btn:
             # click on the okay button

@@ -76,7 +76,7 @@ class GameProfile:
         :return: None
         """
         image_section, area_cords_relative = \
-            self.launcher.get_screen_section(30, BOTTOM_IMAGE)
+            self.launcher.get_screen_section(40, BOTTOM_IMAGE)
         area_cords = self.launcher.find_ocr_target('switch',
                                                    image_section,
                                                    r'--oem 3 --psm 6')

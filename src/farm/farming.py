@@ -353,7 +353,7 @@ class Farm:
         self.launcher.mouse.click()
         time.sleep(1)
         self.launcher.mouse.click()
-        time.sleep(1)
+        time.sleep(4)
 
         # We check for potential conflict
         # if conflict - cancel my fleet action.
